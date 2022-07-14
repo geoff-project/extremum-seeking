@@ -1,0 +1,35 @@
+include:
+ - project: acc-co/devops/python/acc-py-devtools
+   file: acc_py_devtools/templates/gitlab-ci/python.yml
+
+variables:
+  # For test_lint and test_dev, $project_name is a path; for test_install and
+  # test_wheel, it's a package name! Hence, we override it in the latter two
+  # jobs.
+  project_name: cernml
+  PY_VERSION: "3.7"
+
+build_wheel:
+  extends:
+    - .acc_py_build_wheel
+
+test_lint:
+  extends: .acc_py_base
+  stage: test
+  before_script:
+    - pip install 'black' 'pylint' 'mypy' '.[test]'
+  script:
+    - cd "${project_root}"
+    - ./run_linters.sh ${project_name}
+
+test_dev:
+  extends: .acc_py_dev_test
+
+test_wheel:
+  extends: .acc_py_wheel_test
+  variables:
+    PYTEST_ADDOPTS: "-c ${CI_PROJECT_DIR}/pyproject.toml"
+    project_name: cernml.extremum_seeking
+
+release_wheel:
+  extends: .acc_py_release_wheel
