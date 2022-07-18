@@ -22,6 +22,18 @@ import typing as t
 
 import numpy as np
 
+Callback = t.Callable[["ExtremumSeeker", np.ndarray, float], t.Optional[bool]]
+"""Signature of callbacks for :func:`optimize`.
+
+The arguments are the instance of the extremum seeker, the current
+parameters and the cost associated with them. The callback should return
+:obj:`None` or :obj:`False` if optimization should continue or
+:obj:`True` if optimization should end.
+
+This is so that a callback without return value never terminates the
+optimization.
+"""
+
 
 class ExtremumSeeker:
 
@@ -200,9 +212,10 @@ class ExtremumSeeker:
         func: t.Callable[[np.ndarray], float],
         x0: np.ndarray,  # pylint: disable=invalid-name
         *,
-        bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = ...,
-        cost_goal: t.Optional[float] = ...,
         max_calls: None = ...,
+        cost_goal: t.Optional[float] = ...,
+        callbacks: t.Union[Callback, t.Iterable[Callback]] = ...,
+        bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = ...,
     ) -> t.NoReturn:
         ...
 
@@ -212,9 +225,10 @@ class ExtremumSeeker:
         func: t.Callable[[np.ndarray], float],
         x0: np.ndarray,  # pylint: disable=invalid-name
         *,
-        bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = ...,
-        cost_goal: t.Optional[float] = ...,
         max_calls: int,
+        cost_goal: t.Optional[float] = ...,
+        callbacks: t.Union[Callback, t.Iterable[Callback]] = ...,
+        bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = ...,
     ) -> np.ndarray:
         ...
 
@@ -223,23 +237,30 @@ class ExtremumSeeker:
         func: t.Callable[[np.ndarray], float],
         x0: np.ndarray,  # pylint: disable=invalid-name
         *,
-        bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = None,
-        cost_goal: t.Optional[float] = None,
         max_calls: t.Optional[int] = None,
+        cost_goal: t.Optional[float] = None,
+        callbacks: t.Union[Callback, t.Iterable[Callback]] = (),
+        bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = None,
     ) -> np.ndarray:
         """Run an optimization loop using ES.
 
         Args:
             x0: The initial set of parameters to suggest.
-            bounds: If passed, a tuple ``(lower, upper)`` of bounds
-                within which the updated parameters should lie.
+            max_calls: If passed, end the generator after this many
+                steps.
             cost_goal: If passed, end optimization once this threshold
                 is crossed. if :attr:`gain` is positive (the default),
                 the cost must be less than *cost_goal* to end
                 optimization. If :attr:`gain` is negative, the cost must
                 be greater.
-            max_calls: If passed, end the generator after this many
-                steps.
+            callbacks: If passed, should be either a callback function
+                or a list of them. They are called on each iteration
+                with 3 arguments: the :class:`ExtremumSeeker` instance,
+                the current set of parameters, and the cost associated
+                with these parameters. If any callback returns a
+                truth-like value, optimization terminates.
+            bounds: If passed, a tuple ``(lower, upper)`` of bounds
+                within which the updated parameters should lie.
 
         Returns:
             If *max_calls* has been supplied, this returns the final set
@@ -255,15 +276,19 @@ class ExtremumSeeker:
             ... )
             array([-0.00914946, -0.00020783])
         """
+        if isinstance(callbacks, t.Iterable):
+            callbacks = _CallbackList(callbacks)
+        else:
+            callbacks = _CallbackList([callbacks])
+        if cost_goal is not None:
+            callbacks.append(_make_cost_goal_callback(cost_goal))
         generator = self.make_generator(x0, bounds=bounds, max_calls=max_calls)
         try:
             params = next(generator)
             while True:
                 cost = func(params)
-                if cost_goal is not None:
-                    done = (cost < cost_goal) if self.gain > 0.0 else (cost > cost_goal)
-                    if done:
-                        break
+                if callbacks(self, params, cost):
+                    break
                 params = generator.send(cost)
         except StopIteration as exc:
             # This branch runs if `max_calls` is reached and the
@@ -277,9 +302,10 @@ def optimize(
     func: t.Callable[[np.ndarray], float],
     x0: np.ndarray,  # pylint: disable=invalid-name
     *,
-    bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = ...,
-    cost_goal: t.Optional[float] = ...,
     max_calls: None = ...,
+    cost_goal: t.Optional[float] = ...,
+    callbacks: t.Union[Callback, t.Iterable[Callback]] = ...,
+    bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = ...,
     gain: float = ...,
     oscillation_size: float = ...,
     oscillation_sampling: int = ...,
@@ -293,9 +319,10 @@ def optimize(
     func: t.Callable[[np.ndarray], float],
     x0: np.ndarray,  # pylint: disable=invalid-name
     *,
-    bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = ...,
-    cost_goal: t.Optional[float] = ...,
     max_calls: int,
+    cost_goal: t.Optional[float] = ...,
+    callbacks: t.Union[Callback, t.Iterable[Callback]] = ...,
+    bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = ...,
     gain: float = ...,
     oscillation_size: float = ...,
     oscillation_sampling: int = ...,
@@ -308,9 +335,10 @@ def optimize(
     func: t.Callable[[np.ndarray], float],
     x0: np.ndarray,  # pylint: disable=invalid-name
     *,
-    bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = None,
-    cost_goal: t.Optional[float] = None,
     max_calls: t.Optional[int] = None,
+    cost_goal: t.Optional[float] = None,
+    callbacks: t.Union[Callback, t.Iterable[Callback]] = (),
+    bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = None,
     gain: float = 0.2,
     oscillation_size: float = 0.1,
     oscillation_sampling: int = 10,
@@ -320,14 +348,20 @@ def optimize(
 
     Args:
         x0: The initial set of parameters to suggest.
-        bounds: If passed, a tuple ``(lower, upper)`` of bounds
-            within which the updated parameters should lie.
+        max_calls: If passed, end the generator after this many
+            steps.
         cost_goal: If passed, end optimization once this threshold is
             crossed. if :attr:`gain` is positive (the default), the cost
             must be less than *cost_goal* to end optimization. If
             :attr:`gain` is negative, the cost must be greater.
-        max_calls: If passed, end the generator after this many
-            steps.
+        callbacks: If passed, should be either a callback function or a
+            list of them. They are called on each iteration with 3
+            arguments: the :class:`ExtremumSeeker` instance, the current
+            set of parameters, and the cost associated with these
+            parameters. If any callback returns a truth-like value,
+            optimization terminates.
+        bounds: If passed, a tuple ``(lower, upper)`` of bounds
+            within which the updated parameters should lie.
         gain: Scaling factor that is applied to the cost function. If
             positive (the default), the controller minimizes the cost
             function; if negative, the controller maximizes it.
@@ -359,10 +393,46 @@ def optimize(
     return seeker.optimize(
         func=func,
         x0=x0,
-        bounds=bounds,
-        cost_goal=cost_goal,
         max_calls=max_calls,
+        cost_goal=cost_goal,
+        callbacks=callbacks,
+        bounds=bounds,
     )
+
+
+class _CallbackList(t.List[Callback]):
+    """List of callbacks.
+
+    Calling this list always calls all elements. It ends optimization if
+    any of the elements does.
+
+    Example:
+
+        >>> def make_printer(i):
+        ...     def printer(*args):
+        ...         print(i)
+        ...         return i == 2
+        ...     return printer
+        >>> cblist = _CallbackList(make_printer(i) for i in range(1, 4))
+        >>> cblist(ExtremumSeeker(), np.zeros(2), 0.0)
+        1
+        2
+        3
+        True
+    """
+
+    def __call__(self, seeker: ExtremumSeeker, params: np.ndarray, cost: float) -> bool:
+        # Collect bools into a list first to ensure that each callback
+        # is called. `any()` stops on the first True it finds.
+        # pylint: disable = use-a-generator
+        return any([bool(cb(seeker, params, cost)) for cb in self])
+
+
+def _make_cost_goal_callback(cost_goal: float) -> Callback:
+    def _cost_goal(seeker: ExtremumSeeker, _: np.ndarray, cost: float) -> bool:
+        return (cost < cost_goal) if seeker.gain > 0.0 else (cost > cost_goal)
+
+    return _cost_goal
 
 
 def _check_bounds_shape(ndim: int, lower: np.ndarray, upper: np.ndarray) -> None:
