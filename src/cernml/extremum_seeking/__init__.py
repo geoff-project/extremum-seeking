@@ -1,3 +1,15 @@
+"""Implementation of extremum-seeking control.
+
+This implementation follows the description by [Scheinker et al][1]. The
+core idea is to let the parameters oscillate around a center point and
+have the phase advance of the oscillation depend on the cost function.
+ES spends more time where the cost function is low (and phase advance
+small) and less time where it is high. This causes a slow drift in the
+parameter space towards global minima.
+
+[1]: https://doi.org/10.1002/acs.3097
+"""
+
 from __future__ import annotations
 
 import typing as t
@@ -7,30 +19,62 @@ import numpy as np
 
 class ExtremumSeeker:
 
+    """Extremum-seeking controller. See module docstring for more info.
+
+    Args:
+        gain: Scaling factor that is applied to the cost function. If
+            positive (the default), the controller minimizes the cost
+            function; if negative, the controller maximizes it.
+        oscillation_size: Amplitude of the dithering oscillations if the
+            cost were held constant.
+        oscillation_sampling: Number of sampling points per dithering
+            oscillation period. Larger values mean smaller time steps.
+        decay_rate: An optional factor between 0 and 1 that reduces the
+            *oscillation_size* after each step. Only used by
+            :meth:`make_generator()` and :meth:`optimize()`.
+
+    Attributes:
+        gain: The cost function scaling factor.
+        oscillation_size: The dithering oscillation amplitude.
+        oscillation_sampling: The number of samples per period.
+        decay_rate: The amplitude decay rate.
+
+    Example:
+
+        >>> def func(x):
+        ...     return np.mean(x*x)
+        >>> seeker = ExtremumSeeker(gain=2)
+        >>> seeker.optimize(func, np.zeros(3), max_calls=10)
+        array([-0.01223014, -0.07974419, -0.00241286])
+    """
+
     _W_MIN: float = 1.0
     _W_MAX: float = 1.75
 
     def __init__(
         self,
         *,
-        decay_rate: float = 1.0,
+        gain: float = 0.2,
         oscillation_size: float = 0.1,
         oscillation_sampling: int = 10,
-        initial_amplitude: float = 1.0,
-        gain: float = 0.2,
+        decay_rate: float = 1.0,
     ) -> None:
-        if not gain > 0.0:
-            raise ValueError(f"gain must be positive: {gain}")
+        if not gain:
+            raise ValueError(f"gain must not be zero: {gain}")
         if not 0.0 < decay_rate <= 1.0:
             raise ValueError(f"decay_rate must be between 0 and 1: {decay_rate}")
-        self.initial_amplitude = initial_amplitude
-        self.decay_rate = decay_rate
+        self.gain = gain
         self.oscillation_size = oscillation_size
         self.oscillation_sampling = oscillation_sampling
-        self.gain = gain
+        self.decay_rate = decay_rate
 
-    @property
-    def time_step(self) -> float:
+    def get_time_step(self) -> float:
+        """Calculate the ES time step size.
+
+        Note that this time scale need not be related to the time scale
+        of the system. This step size merely determines the oscillation
+        of the ES algorithm.
+        """
         return 2 * np.pi / (self.oscillation_sampling * self._W_MAX)
 
     # This function defines one step of the ES algorithm at iteration i
@@ -39,22 +83,49 @@ class ExtremumSeeker:
         params: np.ndarray,
         *,
         cost: float,
-        time: float,
-        amplitude: float,
+        step: int,
+        amplitude: float = 1.0,
         bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = None,
     ) -> np.ndarray:
-        # ES step for each parameter
+        """Perform one step of the ES algorithm.
+
+        Args:
+            params: The previous set of parameters.
+            cost: The cost associated with the previous parameters.
+            step: The index of the current step.
+            amplitude: Scaling factor on :attr:`oscillation_size`, can
+                be used to implement amplitude decay.
+            bounds: If passed, a tuple ``(lower, upper)`` of bounds
+                within which the updated parameters should lie.
+
+        Returns:
+            The next set of parameters. An array with the same shape as
+            *params*.
+
+        Example:
+
+            >>> seeker = ExtremumSeeker()
+            >>> seeker.calc_next_step(np.zeros(2), cost=0.0, step=0)
+            array([0.03590392, 0.06283185])
+        """
+        # Ensure that we have a flat array.
         params = np.asanyarray(params)
         [ndim] = params.shape
-        w_es = np.linspace(self._W_MIN, self._W_MAX, ndim)
-        phases = time * w_es + self.gain * cost
-        a_es = w_es * self.oscillation_size**2
-        next_params = params + amplitude * self.time_step * np.cos(phases) * np.sqrt(
-            a_es * w_es
-        )
+        time_step = self.get_time_step()
+        # Choose frequency different for each dimension without
+        # resonance between them.
+        dithering_freqs = np.linspace(self._W_MIN, self._W_MAX, ndim)
+        # Choose amplitudes such that integrating over all steps yields
+        # an oscillation with amplitude `oscillation_size`.
+        dithering_amplitudes = dithering_freqs * time_step * self.oscillation_size
+        dithering_phases = dithering_freqs * time_step * step + self.gain * cost
+        # The actual calculation.
+        next_step = dithering_amplitudes * np.cos(dithering_phases)
+        next_params = params + amplitude * next_step
+        # Ensure we remain within bounds.
         if bounds is not None:
             lower, upper = bounds
-            _check_bounds(ndim, lower, upper)
+            _check_bounds_shape(ndim, lower, upper)
             next_params = np.clip(next_params, lower, upper)
         return next_params
 
@@ -65,17 +136,51 @@ class ExtremumSeeker:
         bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = None,
         max_calls: t.Optional[int] = None,
     ) -> t.Generator[np.ndarray, float, np.ndarray]:
+        """Create a generator of parameter suggestions.
+
+        Args:
+            x0: The initial set of parameters to suggest.
+            bounds: If passed, a tuple ``(lower, upper)`` of bounds
+                within which the updated parameters should lie.
+            max_calls: If passed, end the generator after this many
+                steps.
+
+        Returns:
+            A generator *gen* that yields arrays, each of them being a
+            result of :meth:`calc_next_step()`. The next cost function
+            value is passed in via ``gen.send(cost)``. After *max_calls*
+            steps, the generator raises :exc:`StopIteration` with the
+            final set of parameters as value.
+
+        Example:
+
+            >>> def cost_function(x):
+            ...     return np.mean(x*x)
+            >>> seeker = ExtremumSeeker()
+            >>> gen = seeker.make_generator(np.zeros(2), max_calls=10)
+            >>> try:
+            ...     params = next(gen)
+            ...     while True:
+            ...         cost = cost_function(params)
+            ...         params = gen.send(cost)
+            ... except StopIteration as exc:
+            ...     params = exc.value
+            >>> params
+            array([-0.00914946, -0.00020783])
+        """
         params = np.copy(x0)
-        amplitude = self.initial_amplitude
+        amplitude = 1.0
         i = 0
         while max_calls is None or i < max_calls:
             cost = yield params
+            if cost is None:
+                raise TypeError("no cost passed; make sure to call `self.send(cost)`")
             if np.isnan(cost):
                 raise ValueError(f"cost is NaN (not a number) after {i} ES step(s)")
             params = self.calc_next_step(
                 params=params,
                 cost=cost,
-                time=i * self.time_step,
+                step=i,
                 amplitude=amplitude,
                 bounds=bounds,
             )
@@ -89,8 +194,8 @@ class ExtremumSeeker:
         func: t.Callable[[np.ndarray], float],
         x0: np.ndarray,  # pylint: disable=invalid-name
         *,
-        bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = None,
-        max_calls: None = None,
+        bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = ...,
+        max_calls: None = ...,
     ) -> t.NoReturn:
         ...
 
@@ -100,7 +205,7 @@ class ExtremumSeeker:
         func: t.Callable[[np.ndarray], float],
         x0: np.ndarray,  # pylint: disable=invalid-name
         *,
-        bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = None,
+        bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = ...,
         max_calls: int,
     ) -> np.ndarray:
         ...
@@ -113,6 +218,29 @@ class ExtremumSeeker:
         bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = None,
         max_calls: t.Optional[int] = None,
     ) -> np.ndarray:
+        """Run an optimization loop using ES.
+
+        Args:
+            x0: The initial set of parameters to suggest.
+            bounds: If passed, a tuple ``(lower, upper)`` of bounds
+                within which the updated parameters should lie.
+            max_calls: If passed, end the generator after this many
+                steps.
+
+        Returns:
+            If *max_calls* has been supplied, this returns the final set
+            of parameters. Otherwise, this method never returns.
+
+        Example:
+
+            >>> def cost_function(x):
+            ...     return np.mean(x*x)
+            >>> seeker = ExtremumSeeker()
+            >>> seeker.optimize(
+            ...     cost_function, x0=np.zeros(2), max_calls=10
+            ... )
+            array([-0.00914946, -0.00020783])
+        """
         generator = self.make_generator(x0, bounds=bounds, max_calls=max_calls)
         try:
             params = next(generator)
@@ -124,28 +252,87 @@ class ExtremumSeeker:
             return params
 
 
+@t.overload
 def optimize(
     func: t.Callable[[np.ndarray], float],
     x0: np.ndarray,  # pylint: disable=invalid-name
-    max_calls: t.Optional[int] = None,
     *,
-    decay_rate: float = 1.0,
+    bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = ...,
+    max_calls: None = ...,
+    gain: float = 0.2,
     oscillation_size: float = 0.1,
     oscillation_sampling: int = 10,
-    initial_amplitude: float = 1.0,
+    decay_rate: float = 1.0,
+) -> t.NoReturn:
+    ...
+
+
+@t.overload
+def optimize(
+    func: t.Callable[[np.ndarray], float],
+    x0: np.ndarray,  # pylint: disable=invalid-name
+    *,
+    bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = ...,
+    max_calls: int,
     gain: float = 0.2,
+    oscillation_size: float = 0.1,
+    oscillation_sampling: int = 10,
+    decay_rate: float = 1.0,
 ) -> np.ndarray:
+    ...
+
+
+def optimize(
+    func: t.Callable[[np.ndarray], float],
+    x0: np.ndarray,  # pylint: disable=invalid-name
+    *,
+    bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = None,
+    max_calls: t.Optional[int] = None,
+    gain: float = 0.2,
+    oscillation_size: float = 0.1,
+    oscillation_sampling: int = 10,
+    decay_rate: float = 1.0,
+) -> np.ndarray:
+    """Run an optimization loop using ES.
+
+    Args:
+        x0: The initial set of parameters to suggest.
+        bounds: If passed, a tuple ``(lower, upper)`` of bounds
+            within which the updated parameters should lie.
+        max_calls: If passed, end the generator after this many
+            steps.
+        gain: Scaling factor that is applied to the cost function. If
+            positive (the default), the controller minimizes the cost
+            function; if negative, the controller maximizes it.
+        oscillation_size: Amplitude of the dithering oscillations if the
+            cost were held constant.
+        oscillation_sampling: Number of sampling points per dithering
+            oscillation period. Larger values mean smaller time steps.
+        decay_rate: An optional factor between 0 and 1 that reduces the
+            *oscillation_size* after each step. Only used by
+            :meth:`make_generator()` and :meth:`optimize()`.
+
+    Returns:
+        If *max_calls* has been supplied, this returns the final set
+        of parameters. Otherwise, this method never returns.
+
+    Example:
+
+        >>> def cost_function(x):
+        ...     return np.mean(x*x)
+        >>> optimize(cost_function, x0=np.zeros(2), max_calls=10)
+        array([-0.00914946, -0.00020783])
+    """
     seeker = ExtremumSeeker(
         decay_rate=decay_rate,
         oscillation_size=oscillation_size,
         oscillation_sampling=oscillation_sampling,
-        initial_amplitude=initial_amplitude,
         gain=gain,
     )
-    return seeker.optimize(func=func, x0=x0, max_calls=max_calls)
+    return seeker.optimize(func=func, x0=x0, bounds=bounds, max_calls=max_calls)
 
 
-def _check_bounds(ndim: int, lower: np.ndarray, upper: np.ndarray) -> None:
+def _check_bounds_shape(ndim: int, lower: np.ndarray, upper: np.ndarray) -> None:
     if np.shape(lower) != (ndim,):
         raise ValueError(
             f"lower bound has wrong shape: expected ({ndim},), "
