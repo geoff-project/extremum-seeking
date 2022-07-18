@@ -1,0 +1,123 @@
+# Extremum-Seeking Optimization and Control
+
+CernML is the project of bringing numerical optimization, machine learning and
+reinforcement learning to the operation of the CERN accelerator complex.
+
+This is an implementation of the extremum-seeking control algorithm as
+described by [Scheinker et al.][]. The core idea is to let the parameters
+oscillate around a center point and have the phase advance of the oscillation
+depend on the cost function. ES spends more time where the cost function is low
+and less time where it is high. This causes a slow drift in the parameter space
+towards global minima.
+
+[Scheinker et al.]: https://doi.org/10.1002/acs.3097
+
+This package provides both an interface for numeric optimization (locating an
+optimum) and for adaptive control (tracking a drifting/noisy optimum). It also
+provides a coroutine-based interface, `ExtremumSeeker.make_generator()`, to
+leave the control loop in the caller's hand.
+
+This repository can be found online on CERN's [Gitlab][].
+
+[Gitlab]: https://gitlab.cern.ch/be-op-ml-optimization/cernml-extremum-seeking/
+
+## Installation
+
+To install this package from the [Acc-Py Repository][], simply run the
+following line while on the CERN network:
+
+```shell
+pip install cernml-extremum-seeking
+```
+
+To use the source repository, you must first install it as well:
+
+```shell
+git clone https://gitlab.cern.ch/be-op-ml-optimization/cernml-extremum-seeking.git
+cd ./cernml-extremum-seeking/
+pip install .
+```
+
+## Examples
+
+Defining a cost function and creating an `ExtremumSeeker` object:
+
+```python
+>>> rng = np.random.default_rng(0)
+>>> loc = np.zeros(2)
+>>> def cost_function(params: np.ndarray) -> float:
+...     drift = rng.normal(scale=1e-2, size=loc.shape)
+...     noise = rng.normal(scale=1e-3, size=loc.shape)
+...     loc[:] += drift
+...     cost = np.linalg.norm(loc + noise - params)
+...     return cost
+>>> seeker = ExtremumSeeker(oscillation_size=0.1)
+```
+
+Executing a single control step:
+
+```python
+>>> x0 = rng.normal(0.1, size=loc.shape)
+>>> seeker.calc_next_step(x0, cost=cost_function(x0), step=0)
+array([0.26159863, 0.03066484])
+```
+
+Creating a generator that receives cost values and yields the next parameter to
+evaluate:
+
+```python
+>>> gen = seeker.make_generator(x0)
+>>> params = next(gen)
+>>> for _ in range(10):
+...     cost = cost_function(params)
+...     params = gen.send(cost)
+>>> params
+array([ 0.2040842 , -0.03144721])
+```
+
+Running an optimization loop:
+
+```python
+>>> seeker.optimize(cost_function, x0, max_calls=10)
+array([ 0.2050308 , -0.03260463])
+```
+
+Running an optimization loop until the cost is sufficiently small:
+
+```python
+>>> params = seeker.optimize(cost_function, x0, cost_goal=0.01)
+>>> cost_function(params)
+0.018912053758704635
+```
+
+Passing a callback function to the optimization loop:
+
+```python
+>>> def printer(
+...     seeker: ExtremumSeeker, params: np.ndarray, cost: float
+... ):
+...     print("Cost:", cost)
+>>> seeker.optimize(cost_function, x0, max_calls=1, callbacks=printer)
+Cost: 0.31865629817564733
+array([0.26156125, 0.03059943])
+```
+
+Passing multiple callbacks, one of which ends the loop immediately by
+returning `True`:
+
+```python
+>>> def make_printer(text: str) -> Callback:
+...     def callback(*args):
+...         print(text)
+...         terminate = text == "foo"
+...         return terminate
+...     return callback
+>>> seeker.optimize(
+...     cost_function,
+...     x0,
+...     callbacks=[make_printer("foo"), make_printer("bar")],
+... )
+foo
+bar
+array([ 0.22573022, -0.03210486])
+```
