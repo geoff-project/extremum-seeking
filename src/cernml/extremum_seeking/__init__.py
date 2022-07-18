@@ -7,6 +7,12 @@ ES spends more time where the cost function is low (and phase advance
 small) and less time where it is high. This causes a slow drift in the
 parameter space towards global minima.
 
+The extremum seeking algorithm provides both an interface for numeric
+optimization (locating an optimum) and for adaptive control (tracking a
+drifting/noisy optimum). It also provides a coroutine-based interface,
+:meth:`~ExtremumSeeker.make_generator()`, to leave the control loop in
+the caller's hand.
+
 [1]: https://doi.org/10.1002/acs.3097
 """
 
@@ -195,6 +201,7 @@ class ExtremumSeeker:
         x0: np.ndarray,  # pylint: disable=invalid-name
         *,
         bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = ...,
+        cost_goal: t.Optional[float] = ...,
         max_calls: None = ...,
     ) -> t.NoReturn:
         ...
@@ -206,6 +213,7 @@ class ExtremumSeeker:
         x0: np.ndarray,  # pylint: disable=invalid-name
         *,
         bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = ...,
+        cost_goal: t.Optional[float] = ...,
         max_calls: int,
     ) -> np.ndarray:
         ...
@@ -216,6 +224,7 @@ class ExtremumSeeker:
         x0: np.ndarray,  # pylint: disable=invalid-name
         *,
         bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = None,
+        cost_goal: t.Optional[float] = None,
         max_calls: t.Optional[int] = None,
     ) -> np.ndarray:
         """Run an optimization loop using ES.
@@ -224,6 +233,11 @@ class ExtremumSeeker:
             x0: The initial set of parameters to suggest.
             bounds: If passed, a tuple ``(lower, upper)`` of bounds
                 within which the updated parameters should lie.
+            cost_goal: If passed, end optimization once this threshold
+                is crossed. if :attr:`gain` is positive (the default),
+                the cost must be less than *cost_goal* to end
+                optimization. If :attr:`gain` is negative, the cost must
+                be greater.
             max_calls: If passed, end the generator after this many
                 steps.
 
@@ -246,10 +260,16 @@ class ExtremumSeeker:
             params = next(generator)
             while True:
                 cost = func(params)
+                if cost_goal is not None:
+                    done = (cost < cost_goal) if self.gain > 0.0 else (cost > cost_goal)
+                    if done:
+                        break
                 params = generator.send(cost)
         except StopIteration as exc:
+            # This branch runs if `max_calls` is reached and the
+            # generator is exhausted.
             params = exc.value
-            return params
+        return params
 
 
 @t.overload
@@ -258,11 +278,12 @@ def optimize(
     x0: np.ndarray,  # pylint: disable=invalid-name
     *,
     bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = ...,
+    cost_goal: t.Optional[float] = ...,
     max_calls: None = ...,
-    gain: float = 0.2,
-    oscillation_size: float = 0.1,
-    oscillation_sampling: int = 10,
-    decay_rate: float = 1.0,
+    gain: float = ...,
+    oscillation_size: float = ...,
+    oscillation_sampling: int = ...,
+    decay_rate: float = ...,
 ) -> t.NoReturn:
     ...
 
@@ -273,11 +294,12 @@ def optimize(
     x0: np.ndarray,  # pylint: disable=invalid-name
     *,
     bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = ...,
+    cost_goal: t.Optional[float] = ...,
     max_calls: int,
-    gain: float = 0.2,
-    oscillation_size: float = 0.1,
-    oscillation_sampling: int = 10,
-    decay_rate: float = 1.0,
+    gain: float = ...,
+    oscillation_size: float = ...,
+    oscillation_sampling: int = ...,
+    decay_rate: float = ...,
 ) -> np.ndarray:
     ...
 
@@ -287,6 +309,7 @@ def optimize(
     x0: np.ndarray,  # pylint: disable=invalid-name
     *,
     bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = None,
+    cost_goal: t.Optional[float] = None,
     max_calls: t.Optional[int] = None,
     gain: float = 0.2,
     oscillation_size: float = 0.1,
@@ -299,6 +322,10 @@ def optimize(
         x0: The initial set of parameters to suggest.
         bounds: If passed, a tuple ``(lower, upper)`` of bounds
             within which the updated parameters should lie.
+        cost_goal: If passed, end optimization once this threshold is
+            crossed. if :attr:`gain` is positive (the default), the cost
+            must be less than *cost_goal* to end optimization. If
+            :attr:`gain` is negative, the cost must be greater.
         max_calls: If passed, end the generator after this many
             steps.
         gain: Scaling factor that is applied to the cost function. If
@@ -329,7 +356,13 @@ def optimize(
         oscillation_sampling=oscillation_sampling,
         gain=gain,
     )
-    return seeker.optimize(func=func, x0=x0, bounds=bounds, max_calls=max_calls)
+    return seeker.optimize(
+        func=func,
+        x0=x0,
+        bounds=bounds,
+        cost_goal=cost_goal,
+        max_calls=max_calls,
+    )
 
 
 def _check_bounds_shape(ndim: int, lower: np.ndarray, upper: np.ndarray) -> None:
