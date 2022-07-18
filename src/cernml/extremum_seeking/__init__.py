@@ -77,7 +77,7 @@ class ExtremumSeeker:
         oscillation_sampling: int = 10,
         decay_rate: float = 1.0,
     ) -> None:
-        if not gain:
+        if gain == 0.0 or not np.isfinite(gain):
             raise ValueError(f"gain must not be zero: {gain}")
         if not 0.0 < decay_rate <= 1.0:
             raise ValueError(f"decay_rate must be between 0 and 1: {decay_rate}")
@@ -217,7 +217,7 @@ class ExtremumSeeker:
         callbacks: t.Union[Callback, t.Iterable[Callback]] = ...,
         bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = ...,
     ) -> t.NoReturn:
-        ...
+        ...  # pragma: no cover
 
     @t.overload
     def optimize(
@@ -230,7 +230,7 @@ class ExtremumSeeker:
         callbacks: t.Union[Callback, t.Iterable[Callback]] = ...,
         bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = ...,
     ) -> np.ndarray:
-        ...
+        ...  # pragma: no cover
 
     def optimize(
         self,
@@ -311,7 +311,7 @@ def optimize(
     oscillation_sampling: int = ...,
     decay_rate: float = ...,
 ) -> t.NoReturn:
-    ...
+    ...  # pragma: no cover
 
 
 @t.overload
@@ -328,7 +328,7 @@ def optimize(
     oscillation_sampling: int = ...,
     decay_rate: float = ...,
 ) -> np.ndarray:
-    ...
+    ...  # pragma: no cover
 
 
 def optimize(
