@@ -1,11 +1,13 @@
 """Implementation of extremum-seeking control.
 
-This implementation follows the description by [Scheinker et al][1]. The
-core idea is to let the parameters oscillate around a center point and
-have the phase advance of the oscillation depend on the cost function.
-ES spends more time where the cost function is low (and phase advance
-small) and less time where it is high. This causes a slow drift in the
-parameter space towards global minima.
+This implementation follows the description by [Scheinker et al.][1].
+The core idea is to let the parameters oscillate around a center point
+and have the phase advance of the oscillation depend on the cost
+function. ES spends more time where the cost function is low and less
+time where it is high. This causes a slow drift in the parameter space
+towards global minima.
+
+[1]: https://doi.org/10.1002/acs.3097
 
 The extremum seeking algorithm provides both an interface for numeric
 optimization (locating an optimum) and for adaptive control (tracking a
@@ -13,7 +15,73 @@ drifting/noisy optimum). It also provides a coroutine-based interface,
 :meth:`~ExtremumSeeker.make_generator()`, to leave the control loop in
 the caller's hand.
 
-[1]: https://doi.org/10.1002/acs.3097
+Defining a cost function and creating an :class:`ExtremumSeeker` object:
+
+    >>> rng = np.random.default_rng(0)
+    >>> loc = np.zeros(2)
+    >>> def cost_function(params: np.ndarray) -> float:
+    ...     drift = rng.normal(scale=1e-2, size=loc.shape)
+    ...     noise = rng.normal(scale=1e-3, size=loc.shape)
+    ...     loc[:] += drift
+    ...     cost = np.linalg.norm(loc + noise - params)
+    ...     return cost
+    >>> seeker = ExtremumSeeker(oscillation_size=0.1)
+
+Executing a single control step:
+
+    >>> x0 = rng.normal(0.1, size=loc.shape)
+    >>> seeker.calc_next_step(x0, cost=cost_function(x0), step=0)
+    array([0.26159863, 0.03066484])
+
+Creating a generator that receives cost values and yields the next
+parameter to evaluate:
+
+    >>> gen = seeker.make_generator(x0)
+    >>> params = next(gen)
+    >>> for _ in range(10):
+    ...     cost = cost_function(params)
+    ...     params = gen.send(cost)
+    >>> params
+    array([ 0.2040842 , -0.03144721])
+
+Running an optimization loop:
+
+    >>> seeker.optimize(cost_function, x0, max_calls=10)
+    array([ 0.2050308 , -0.03260463])
+
+Running an optimization loop until the cost is sufficiently small:
+
+    >>> params = seeker.optimize(cost_function, x0, cost_goal=0.01)
+    >>> cost_function(params)
+    0.018912053758704635
+
+Passing a callback function to the optimization loop:
+
+    >>> def printer(
+    ...     seeker: ExtremumSeeker, params: np.ndarray, cost: float
+    ... ):
+    ...     print("Cost:", cost)
+    >>> seeker.optimize(cost_function, x0, max_calls=1, callbacks=printer)
+    Cost: 0.31865629817564733
+    array([0.26156125, 0.03059943])
+
+Passing multiple callbacks, one of which ends the loop immediately by
+returning :obj:`True`:
+
+    >>> def make_printer(text: str) -> Callback:
+    ...     def callback(*args):
+    ...         print(text)
+    ...         terminate = text == "foo"
+    ...         return terminate
+    ...     return callback
+    >>> seeker.optimize(
+    ...     cost_function,
+    ...     x0,
+    ...     callbacks=[make_printer("foo"), make_printer("bar")],
+    ... )
+    foo
+    bar
+    array([ 0.22573022, -0.03210486])
 """
 
 from __future__ import annotations
