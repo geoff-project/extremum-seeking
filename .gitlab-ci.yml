@@ -17,10 +17,10 @@ test_lint:
   extends: .acc_py_base
   stage: test
   before_script:
-    - pip install 'black' 'pylint' 'mypy' '.[test]'
+    - pip install 'black' 'pylint' 'mypy' '.[test,examples]'
   script:
     - cd "${project_root}"
-    - ./run_linters.sh ./src
+    - ./run_linters.sh ./src ./examples
 
 test_dev:
   extends: .acc_py_dev_test
