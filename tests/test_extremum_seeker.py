@@ -35,14 +35,14 @@ def test_raises_on_bad_decay_rate(decay_rate: float) -> None:
 
 def test_bounds() -> None:
     bounds = 0.1 * np.ones(2)
-    params = es.optimize(
+    res = es.optimize(
         lambda x: np.mean(x * x),
         x0=np.zeros(2),
         max_calls=1,
         oscillation_size=1.0,
         bounds=(-bounds, bounds),
     )
-    assert np.array_equal(params, bounds)
+    assert np.array_equal(res.x, bounds)
 
 
 @pytest.mark.parametrize(
@@ -71,10 +71,8 @@ def test_cost_is_nan() -> None:
 def test_cost_goal() -> None:
     cost_goal = 0.01
     cost_function = Mock(side_effect=lambda x: np.mean(np.square(x)))
-    params: np.ndarray = es.optimize(
-        cost_function, x0=0.2 * np.ones(2), cost_goal=cost_goal
-    )
-    assert cost_function(params) < cost_goal
+    res = es.optimize(cost_function, x0=0.2 * np.ones(2), cost_goal=cost_goal)
+    assert cost_function(res.fun) < cost_goal
     assert cost_function.call_count == 260
 
 

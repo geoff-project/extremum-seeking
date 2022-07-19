@@ -46,13 +46,18 @@ parameter to evaluate:
 
 Running an optimization loop:
 
-    >>> seeker.optimize(cost_function, x0, max_calls=10)
-    array([ 0.2050308 , -0.03260463])
+    >>> res = seeker.optimize(cost_function, x0, max_calls=10)
+    >>> print(res)
+         x: array([ 0.2050308 , -0.03260463])
+       fun: 0.2372069024495349
+    status: OptimizeStatus.MAX_CALLS
+       nit: 10
+
 
 Running an optimization loop until the cost is sufficiently small:
 
-    >>> params = seeker.optimize(cost_function, x0, cost_goal=0.01)
-    >>> cost_function(params)
+    >>> res = seeker.optimize(cost_function, x0, cost_goal=0.01)
+    >>> cost_function(res.x)
     0.018912053758704635
 
 Passing a callback function to the optimization loop:
@@ -61,9 +66,8 @@ Passing a callback function to the optimization loop:
     ...     seeker: ExtremumSeeker, params: np.ndarray, cost: float
     ... ):
     ...     print("Cost:", cost)
-    >>> seeker.optimize(cost_function, x0, max_calls=1, callbacks=printer)
+    >>> _ = seeker.optimize(cost_function, x0, max_calls=1, callbacks=printer)
     Cost: 0.31865629817564733
-    array([0.26156125, 0.03059943])
 
 Passing multiple callbacks, one of which ends the loop immediately by
 returning :obj:`True`:
@@ -74,19 +78,20 @@ returning :obj:`True`:
     ...         terminate = text == "foo"
     ...         return terminate
     ...     return callback
-    >>> seeker.optimize(
+    >>> _ = seeker.optimize(
     ...     cost_function,
     ...     x0,
     ...     callbacks=[make_printer("foo"), make_printer("bar")],
     ... )
     foo
     bar
-    array([ 0.22573022, -0.03210486])
 """
 
 from __future__ import annotations
 
 import typing as t
+from dataclasses import dataclass
+from enum import Enum
 
 import numpy as np
 
@@ -101,6 +106,56 @@ parameters and the cost associated with them. The callback should return
 This is so that a callback without return value never terminates the
 optimization.
 """
+
+
+class OptimizeStatus(Enum):
+    """The reason why optimization has been terminated."""
+
+    MAX_CALLS = "The maximum number of function calls has been reached"
+    CALLBACK = "A callback terminated optimization"
+
+    def __str__(self) -> str:
+        return self.value
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}.{self.name}"
+
+
+@dataclass
+class OptimizeResult:
+    """The return value of :meth:`~ExtremumSeeker.optimize()`.
+
+    Args:
+        x: The final set of parameters.
+        fun: Corresponding value of the cost function. If the cost
+            function was never evaluated or immediate raised an
+            exception, this value is :obj:`~np.nan`.
+        status: The reason why optimization has been terminated.
+        nit: The number of cost function evaluations.
+    """
+
+    x: np.ndarray  # pylint: disable=invalid-name
+    fun: float
+    status: OptimizeStatus
+    nit: int
+
+    def __str__(self) -> str:
+        fields = vars(self)
+        width = max(map(len, fields.keys()))
+        return "\n".join(f"{name:>{width}}: {val!r}" for name, val in fields.items())
+
+    @property
+    def success(self) -> bool:
+        """Always True.
+
+        This flag exists for forward compatibility.
+        """
+        return bool(self.status)
+
+    @property
+    def message(self) -> str:
+        """A string description of the termination reason."""
+        return self.status.value
 
 
 class ExtremumSeeker:
@@ -130,8 +185,12 @@ class ExtremumSeeker:
         >>> def func(x):
         ...     return np.mean(x*x)
         >>> seeker = ExtremumSeeker(gain=2)
-        >>> seeker.optimize(func, np.zeros(3), max_calls=10)
-        array([-0.01223014, -0.07974419, -0.00241286])
+        >>> res = seeker.optimize(func, np.zeros(3), max_calls=10)
+        >>> print(res)
+             x: array([-0.01223014, -0.07974419, -0.00241286])
+           fun: 0.0026262643819013848
+        status: OptimizeStatus.MAX_CALLS
+           nit: 10
     """
 
     _W_MIN: float = 1.0
@@ -284,7 +343,7 @@ class ExtremumSeeker:
         cost_goal: t.Optional[float] = ...,
         callbacks: t.Union[Callback, t.Iterable[Callback]] = ...,
         bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = ...,
-    ) -> t.NoReturn:
+    ) -> OptimizeResult:
         ...  # pragma: no cover
 
     @t.overload
@@ -297,7 +356,7 @@ class ExtremumSeeker:
         cost_goal: t.Optional[float] = ...,
         callbacks: t.Union[Callback, t.Iterable[Callback]] = ...,
         bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = ...,
-    ) -> np.ndarray:
+    ) -> OptimizeResult:
         ...  # pragma: no cover
 
     def optimize(
@@ -309,7 +368,7 @@ class ExtremumSeeker:
         cost_goal: t.Optional[float] = None,
         callbacks: t.Union[Callback, t.Iterable[Callback]] = (),
         bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = None,
-    ) -> np.ndarray:
+    ) -> OptimizeResult:
         """Run an optimization loop using ES.
 
         Args:
@@ -339,10 +398,14 @@ class ExtremumSeeker:
             >>> def cost_function(x):
             ...     return np.mean(x*x)
             >>> seeker = ExtremumSeeker()
-            >>> seeker.optimize(
+            >>> res = seeker.optimize(
             ...     cost_function, x0=np.zeros(2), max_calls=10
             ... )
-            array([-0.00914946, -0.00020783])
+            >>> print(res)
+                 x: array([-0.00914946, -0.00020783])
+               fun: 0.0016571738852837223
+            status: OptimizeStatus.MAX_CALLS
+               nit: 10
         """
         if isinstance(callbacks, t.Iterable):
             callbacks = _CallbackList(callbacks)
@@ -351,18 +414,22 @@ class ExtremumSeeker:
         if cost_goal is not None:
             callbacks.append(_make_cost_goal_callback(cost_goal))
         generator = self.make_generator(x0, bounds=bounds, max_calls=max_calls)
+        nit = 0
+        cost = np.nan
         try:
             params = next(generator)
             while True:
+                nit += 1
                 cost = func(params)
                 if callbacks(self, params, cost):
-                    break
+                    return OptimizeResult(
+                        x=params, fun=cost, status=OptimizeStatus.CALLBACK, nit=nit
+                    )
                 params = generator.send(cost)
         except StopIteration as exc:
-            # This branch runs if `max_calls` is reached and the
-            # generator is exhausted.
-            params = exc.value
-        return params
+            return OptimizeResult(
+                x=exc.value, fun=cost, status=OptimizeStatus.MAX_CALLS, nit=nit
+            )
 
 
 @t.overload
@@ -378,7 +445,7 @@ def optimize(
     oscillation_size: float = ...,
     oscillation_sampling: int = ...,
     decay_rate: float = ...,
-) -> t.NoReturn:
+) -> OptimizeResult:
     ...  # pragma: no cover
 
 
@@ -395,7 +462,7 @@ def optimize(
     oscillation_size: float = ...,
     oscillation_sampling: int = ...,
     decay_rate: float = ...,
-) -> np.ndarray:
+) -> OptimizeResult:
     ...  # pragma: no cover
 
 
@@ -411,7 +478,7 @@ def optimize(
     oscillation_size: float = 0.1,
     oscillation_sampling: int = 10,
     decay_rate: float = 1.0,
-) -> np.ndarray:
+) -> OptimizeResult:
     """Run an optimization loop using ES.
 
     Args:
@@ -449,8 +516,12 @@ def optimize(
 
         >>> def cost_function(x):
         ...     return np.mean(x*x)
-        >>> optimize(cost_function, x0=np.zeros(2), max_calls=10)
-        array([-0.00914946, -0.00020783])
+        >>> res = optimize(cost_function, x0=np.zeros(2), max_calls=10)
+        >>> print(res)
+             x: array([-0.00914946, -0.00020783])
+           fun: 0.0016571738852837223
+        status: OptimizeStatus.MAX_CALLS
+           nit: 10
     """
     seeker = ExtremumSeeker(
         decay_rate=decay_rate,

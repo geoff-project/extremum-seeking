@@ -40,7 +40,7 @@ pip install .
 
 ## Examples
 
-Defining a cost function and creating an `ExtremumSeeker` object:
+Defining a cost function and creating an :class:`ExtremumSeeker` object:
 
 ```python
 >>> rng = np.random.default_rng(0)
@@ -62,8 +62,8 @@ Executing a single control step:
 array([0.26159863, 0.03066484])
 ```
 
-Creating a generator that receives cost values and yields the next parameter to
-evaluate:
+Creating a generator that receives cost values and yields the next
+parameter to evaluate:
 
 ```python
 >>> gen = seeker.make_generator(x0)
@@ -78,15 +78,20 @@ array([ 0.2040842 , -0.03144721])
 Running an optimization loop:
 
 ```python
->>> seeker.optimize(cost_function, x0, max_calls=10)
-array([ 0.2050308 , -0.03260463])
+>>> res = seeker.optimize(cost_function, x0, max_calls=10)
+>>> print(res)
+     x: array([ 0.2050308 , -0.03260463])
+   fun: 0.2372069024495349
+status: OptimizeStatus.MAX_CALLS
+   nit: 10
 ```
+
 
 Running an optimization loop until the cost is sufficiently small:
 
 ```python
->>> params = seeker.optimize(cost_function, x0, cost_goal=0.01)
->>> cost_function(params)
+>>> res = seeker.optimize(cost_function, x0, cost_goal=0.01)
+>>> cost_function(res.x)
 0.018912053758704635
 ```
 
@@ -97,13 +102,12 @@ Passing a callback function to the optimization loop:
 ...     seeker: ExtremumSeeker, params: np.ndarray, cost: float
 ... ):
 ...     print("Cost:", cost)
->>> seeker.optimize(cost_function, x0, max_calls=1, callbacks=printer)
+>>> _ = seeker.optimize(cost_function, x0, max_calls=1, callbacks=printer)
 Cost: 0.31865629817564733
-array([0.26156125, 0.03059943])
 ```
 
 Passing multiple callbacks, one of which ends the loop immediately by
-returning `True`:
+returning :obj:`True`:
 
 ```python
 >>> def make_printer(text: str) -> Callback:
@@ -112,12 +116,11 @@ returning `True`:
 ...         terminate = text == "foo"
 ...         return terminate
 ...     return callback
->>> seeker.optimize(
+>>> _ = seeker.optimize(
 ...     cost_function,
 ...     x0,
 ...     callbacks=[make_printer("foo"), make_printer("bar")],
 ... )
 foo
 bar
-array([ 0.22573022, -0.03210486])
 ```
