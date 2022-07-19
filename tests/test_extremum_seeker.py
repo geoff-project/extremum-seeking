@@ -21,6 +21,17 @@ def test_max_calls(max_calls: int) -> None:
     assert cost_function.call_count == max_calls
 
 
+def test_params_and_cost_in_sync() -> None:
+    def _cost_function(params: np.ndarray) -> float:
+        return np.mean(np.square(params))
+
+    def _callback(_seeker: es.ExtremumSeeker, iteration: es.Iteration) -> None:
+        assert _cost_function(iteration.params) == iteration.cost
+
+    res = es.optimize(_cost_function, np.zeros(2), max_calls=20, callbacks=_callback)
+    assert _cost_function(res.params) == res.cost
+
+
 @pytest.mark.parametrize("gain", [0.0, np.inf, np.nan])
 def test_raises_on_bad_gain(gain: float) -> None:
     with pytest.raises(ValueError):
@@ -38,11 +49,11 @@ def test_bounds() -> None:
     res = es.optimize(
         lambda x: np.mean(x * x),
         x0=np.zeros(2),
-        max_calls=1,
+        max_calls=2,
         oscillation_size=1.0,
         bounds=(-bounds, bounds),
     )
-    assert np.array_equal(res.x, bounds)
+    assert np.array_equal(res.params, bounds)
 
 
 @pytest.mark.parametrize(
@@ -69,11 +80,12 @@ def test_cost_is_nan() -> None:
 
 
 def test_cost_goal() -> None:
-    cost_goal = 0.01
+    cost_goal = 0.001
     cost_function = Mock(side_effect=lambda x: np.mean(np.square(x)))
     res = es.optimize(cost_function, x0=0.2 * np.ones(2), cost_goal=cost_goal)
-    assert cost_function(res.fun) < cost_goal
-    assert cost_function.call_count == 260
+    assert cost_function(res.params) == res.cost
+    assert res.cost < cost_goal
+    assert cost_function.call_count == 749
 
 
 @pytest.mark.parametrize("max_calls", [0, 1, 10])

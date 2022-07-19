@@ -57,7 +57,7 @@ Defining a cost function and creating an :class:`ExtremumSeeker` object:
 Executing a single control step:
 
 ```python
->>> x0 = rng.normal(0.1, size=loc.shape)
+>>> x0 = rng.normal(0.1, size=loc.sahape)
 >>> seeker.calc_next_step(x0, cost=cost_function(x0), step=0)
 array([0.26159863, 0.03066484])
 ```
@@ -67,12 +67,12 @@ parameter to evaluate:
 
 ```python
 >>> gen = seeker.make_generator(x0)
->>> params = next(gen)
->>> for _ in range(10):
-...     cost = cost_function(params)
-...     params = gen.send(cost)
->>> params
-array([ 0.2040842 , -0.03144721])
+>>> cost = None
+>>> for i in range(10):
+...     it = gen.send(cost)
+...     cost = cost_function(it.params)
+>>> it.params
+array([ 0.16964995, -0.09272651])
 ```
 
 Running an optimization loop:
@@ -80,9 +80,8 @@ Running an optimization loop:
 ```python
 >>> res = seeker.optimize(cost_function, x0, max_calls=10)
 >>> print(res)
-     x: array([ 0.2050308 , -0.03260463])
-   fun: 0.2372069024495349
-status: OptimizeStatus.MAX_CALLS
+params: array([ 0.16998328, -0.09349066])
+  cost: 0.1895720815951993
    nit: 10
 ```
 
@@ -91,19 +90,17 @@ Running an optimization loop until the cost is sufficiently small:
 
 ```python
 >>> res = seeker.optimize(cost_function, x0, cost_goal=0.01)
->>> cost_function(res.x)
-0.018912053758704635
+>>> cost_function(res.params)
+0.01050409604837506
 ```
 
 Passing a callback function to the optimization loop:
 
 ```python
->>> def printer(
-...     seeker: ExtremumSeeker, params: np.ndarray, cost: float
-... ):
-...     print("Cost:", cost)
+>>> def printer(seeker: ExtremumSeeker, iteration: Iteration):
+...     print("Cost:", iteration.cost)
 >>> _ = seeker.optimize(cost_function, x0, max_calls=1, callbacks=printer)
-Cost: 0.31865629817564733
+Cost: 0.6215048967082203
 ```
 
 Passing multiple callbacks, one of which ends the loop immediately by
