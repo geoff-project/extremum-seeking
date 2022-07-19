@@ -111,40 +111,6 @@ terminates the optimization.
 """
 
 
-@t.overload
-def optimize(
-    func: t.Callable[[np.ndarray], float],
-    x0: np.ndarray,  # pylint: disable=invalid-name
-    *,
-    max_calls: None = ...,
-    cost_goal: t.Optional[float] = ...,
-    callbacks: t.Union[Callback, t.Iterable[Callback]] = ...,
-    bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = ...,
-    gain: float = ...,
-    oscillation_size: float = ...,
-    oscillation_sampling: int = ...,
-    decay_rate: float = ...,
-) -> OptimizeResult:
-    ...  # pragma: no cover
-
-
-@t.overload
-def optimize(
-    func: t.Callable[[np.ndarray], float],
-    x0: np.ndarray,  # pylint: disable=invalid-name
-    *,
-    max_calls: int,
-    cost_goal: t.Optional[float] = ...,
-    callbacks: t.Union[Callback, t.Iterable[Callback]] = ...,
-    bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = ...,
-    gain: float = ...,
-    oscillation_size: float = ...,
-    oscillation_sampling: int = ...,
-    decay_rate: float = ...,
-) -> OptimizeResult:
-    ...  # pragma: no cover
-
-
 def optimize(
     func: t.Callable[[np.ndarray], float],
     x0: np.ndarray,  # pylint: disable=invalid-name
@@ -405,32 +371,6 @@ class ExtremumSeeker:
                 )
             iteration.params = _calc_next_step(self, iteration)
             iteration.amplitude *= self.decay_rate
-
-    @t.overload
-    def optimize(
-        self,
-        func: t.Callable[[np.ndarray], float],
-        x0: np.ndarray,  # pylint: disable=invalid-name
-        *,
-        max_calls: None = ...,
-        cost_goal: t.Optional[float] = ...,
-        callbacks: t.Union[Callback, t.Iterable[Callback]] = ...,
-        bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = ...,
-    ) -> OptimizeResult:
-        ...  # pragma: no cover
-
-    @t.overload
-    def optimize(
-        self,
-        func: t.Callable[[np.ndarray], float],
-        x0: np.ndarray,  # pylint: disable=invalid-name
-        *,
-        max_calls: int,
-        cost_goal: t.Optional[float] = ...,
-        callbacks: t.Union[Callback, t.Iterable[Callback]] = ...,
-        bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = ...,
-    ) -> OptimizeResult:
-        ...  # pragma: no cover
 
     def optimize(
         self,
