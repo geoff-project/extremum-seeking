@@ -20,5 +20,10 @@ output-format = 'parseable'
 reports = false
 score = false
 
+[tool.pylint.'MESSAGES CONTROL']
+disable = [
+    'duplicate-code',
+]
+
 [tool.pytest.ini_options]
 addopts = "--doctest-modules"

@@ -20,7 +20,7 @@ test_lint:
     - pip install 'black' 'pylint' 'mypy' '.[test,examples]'
   script:
     - cd "${project_root}"
-    - ./run_linters.sh ./src ./examples
+    - ./run_linters.sh ./src ./examples ./tests
 
 test_dev:
   extends: .acc_py_dev_test
