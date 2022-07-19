@@ -46,7 +46,7 @@ def main() -> None:
     generator = ExtremumSeeker(oscillation_size=0.5, gain=5.0).make_generator(
         np.random.normal(scale=3.0, size=2), bounds=(lower, upper)
     )
-    seeker = next(generator)
+    seeker = next(generator).params
     goal = np.random.normal(scale=3.0, size=2)
 
     # Set up the game board plot.
@@ -86,7 +86,7 @@ def main() -> None:
             )
         # Update the seeker position.
         cost = np.linalg.norm(seeker - goal)
-        seeker = generator.send(cost)
+        seeker = generator.send(cost).params
         # Record the latest cost function value.
         history_indices.append(len(history_indices))
         history_costs.append(cost)

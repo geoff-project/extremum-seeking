@@ -155,13 +155,13 @@ def main() -> None:
         x0=init,
         bounds=(game.optimization_space.low, game.optimization_space.high),
     )
-    params = next(generator)
+    params = next(generator).params
     while not done:
         # Give the GUI some time to draw.
         pyplot.pause(0.1)
         # The main loop.
         cost = game.compute_single_objective(params)
-        params = generator.send(cost)
+        params = generator.send(cost).params
         game.render()
 
 

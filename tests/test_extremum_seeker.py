@@ -22,14 +22,35 @@ def test_max_calls(max_calls: int) -> None:
 
 
 def test_params_and_cost_in_sync() -> None:
-    def _cost_function(params: np.ndarray) -> float:
+    def cost_function(params: np.ndarray) -> float:
         return np.mean(np.square(params))
 
-    def _callback(_seeker: es.ExtremumSeeker, iteration: es.Iteration) -> None:
-        assert _cost_function(iteration.params) == iteration.cost
+    def callback(_seeker: es.ExtremumSeeker, iteration: es.Iteration) -> None:
+        assert cost_function(iteration.params) == iteration.cost
 
-    res = es.optimize(_cost_function, np.zeros(2), max_calls=20, callbacks=_callback)
-    assert _cost_function(res.params) == res.cost
+    res = es.optimize(cost_function, np.zeros(2), max_calls=20, callbacks=callback)
+    assert cost_function(res.params) == res.cost
+
+
+def test_decay_rate() -> None:
+    gen = es.ExtremumSeeker(decay_rate=0.5).make_generator(np.zeros(2))
+    iteration = next(gen)
+    for expected in [1.0, 0.5, 0.25, 0.125]:
+        assert iteration.amplitude == expected
+        iteration = gen.send(0.0)
+
+
+def test_custom_amplitude() -> None:
+    expected = (2**-i for i in range(10))
+
+    def callback(_seeker: es.ExtremumSeeker, iteration: es.Iteration) -> None:
+        assert iteration.amplitude == next(expected)
+        iteration.amplitude *= 0.5
+
+    res = es.optimize(
+        Mock(return_value=0.0), np.zeros(2), max_calls=10, callbacks=callback
+    )
+    assert np.allclose(res.params, np.array([0.02500405, 0.02193172]))
 
 
 @pytest.mark.parametrize("gain", [0.0, np.inf, np.nan])
