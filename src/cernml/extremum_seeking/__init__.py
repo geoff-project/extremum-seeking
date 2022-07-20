@@ -292,6 +292,15 @@ class ExtremumSeeker:
         """
         return 2 * np.pi / (self.oscillation_sampling * self._W_MAX)
 
+    def get_dithering_freqs(self, ndim: int) -> np.ndarray:
+        """Calculate the frequencies necessary for dithering.
+
+        This returns a 1D array of length *ndim*, one for each parameter
+        that is being controlled. They are chosen to prevent resonance
+        between different parameters.
+        """
+        return np.linspace(self._W_MIN, self._W_MAX, ndim)
+
     def calc_next_step(
         self,
         params: np.ndarray,
@@ -489,7 +498,7 @@ def _calc_next_step(seeker: ExtremumSeeker, data: Iteration) -> np.ndarray:
     time_step = seeker.get_time_step()
     # Choose frequency different for each dimension without
     # resonance between them.
-    dithering_freqs = np.linspace(seeker._W_MIN, seeker._W_MAX, ndim)
+    dithering_freqs = seeker.get_dithering_freqs(ndim)
     # Choose amplitudes such that integrating over all steps yields
     # an oscillation with amplitude `oscillation_size`.
     dithering_amplitudes = dithering_freqs * time_step * seeker.oscillation_size
