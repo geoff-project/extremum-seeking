@@ -57,7 +57,7 @@ Defining a cost function and creating an :class:`ExtremumSeeker` object:
 Executing a single control step:
 
 ```python
->>> x0 = rng.normal(0.1, size=loc.sahape)
+>>> x0 = rng.normal(0.1, size=loc.shape)
 >>> seeker.calc_next_step(x0, cost=cost_function(x0), step=0)
 array([0.26159863, 0.03066484])
 ```
