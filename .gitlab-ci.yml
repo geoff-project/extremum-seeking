@@ -1,38 +1,45 @@
 include:
- - project: acc-co/devops/python/acc-py-devtools
-   file: acc_py_devtools/templates/gitlab-ci/python.yml
+  - project: acc-co/devops/python/acc-py-gitlab-ci-templates
+    file: v2/python.gitlab-ci.yml
 
 variables:
-  # For test_lint and test_dev, $project_name is a path; for test_install and
-  # test_wheel, it's a package name! Hence, we override it in the latter two
-  # jobs.
-  project_name: cernml.extremum_seeking
   PY_VERSION: "3.7"
+  ACC_PY_BASE_IMAGE_TAG: '2020.11'
+  project_name: cernml.extremum_seeking
 
 build_wheel:
   extends:
     - .acc_py_build_wheel
 
 test_lint:
-  extends: .acc_py_base
+  extends:
+    - .acc_py_run_on_manylinux_py_version
   stage: test
   before_script:
-    - pip install 'black' 'pylint' 'mypy' '.[test,examples]'
+    - !reference [.acc_py_run_on_manylinux_py_version, before_script]
+    - python -m pip install ${project_root}[lint,test,examples]
   script:
-    - cd "${project_root}"
+    - cd ${project_root}
     - ./run_linters.sh ./src ./examples ./tests
 
 test_dev:
   extends: .acc_py_dev_test
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+  # Override `script` to change the precise pytest-cov arguments.
   script:
-    - pip install -e '.[test]'
     - cd ${project_root}
-    - pytest ./src ./tests --cov=${project_name} --junitxml=report.xml
+    - python -m pytest
+      --cov=src
+      --cov-branch
+      --cov-report=term
+      --cov-report=html:coverage-html
+      --cov-report=xml:coverage-report.xml
+      --junitxml=junit-report.xml
 
 test_wheel:
-  extends: .acc_py_wheel_test
   variables:
     PYTEST_ADDOPTS: "-c ${CI_PROJECT_DIR}/pyproject.toml"
+  extends: .acc_py_wheel_test
 
-release_wheel:
-  extends: .acc_py_release_wheel
+publish:
+  extends: .acc_py_publish
