@@ -85,7 +85,7 @@ def main() -> None:
                 goal + np.random.normal(scale=0.05, size=goal.shape), lower, upper
             )
         # Update the seeker position.
-        cost = np.linalg.norm(seeker - goal)
+        cost = float(np.linalg.norm(seeker - goal))
         seeker = generator.send(cost).params
         # Record the latest cost function value.
         history_indices.append(len(history_indices))

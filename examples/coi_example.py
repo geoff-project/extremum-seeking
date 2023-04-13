@@ -55,7 +55,7 @@ class HideAndSeekGame(coi.SingleOptimizable):
 
     param_names = ["X", "Y"]
     optimization_space = gym.spaces.Box(-5.0, 5.0, shape=(2,))
-    objective_range = (0.0, np.linalg.norm([10.0, 10.0]))
+    objective_range = (0.0, float(np.linalg.norm([10.0, 10.0])))
     objective_name = "Distance"
 
     def __init__(self) -> None:
@@ -79,7 +79,7 @@ class HideAndSeekGame(coi.SingleOptimizable):
             self.optimization_space.low,
             self.optimization_space.high,
         )
-        cost = np.linalg.norm(self.seeker - self.goal)
+        cost = float(np.linalg.norm(self.seeker - self.goal))
         self.history_indices.append(len(self.history_indices))
         self.history_costs.append(cost)
         return cost
