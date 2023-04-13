@@ -1,10 +1,55 @@
 [build-system]
 requires = [
+    'pip >= 22',
     'setuptools >= 42',
     'setuptools-scm[toml] >= 6.2',
     'wheel',
 ]
 build-backend = 'setuptools.build_meta'
+
+[project]
+dynamic = ['version']
+name = 'cernml-extremum-seeking'
+authors = [
+    {name = 'Nico Madysa', email = 'nico.madysa@cern.ch'},
+]
+description = "Scheinker's extremum seeking algorithm as an optimizer"
+readme = 'README.md'
+license = {text='Other/Proprietary License'}
+requires-python = '>=3.7'
+dependencies = [
+    'numpy ~= 1.0',
+]
+classifiers = [
+    'Development Status :: 3 - Alpha',
+    'Environment :: Console',
+    'Intended Audience :: Science/Research',
+    'License :: Other/Proprietary License',
+    'Topic :: Scientific/Engineering :: Artificial Intelligence',
+    'Topic :: Scientific/Engineering :: Physics',
+    'Natural Language :: English',
+    'Operating System :: OS Independent',
+    'Programming Language :: Python :: 3.7',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3 :: Only',
+]
+
+[project.optional-dependencies]
+examples = [
+    'cernml-coi ~= 0.8.0',
+    'cernml-coi-utils[matplotlib] ~= 0.2.0',
+]
+test = [
+    'pytest',
+]
+
+[project.urls]
+gitlab = 'https://gitlab.cern.ch/geoff/optimizers/cernml-extremum-seeking'
+wiki = 'https://wikis.cern.ch/pages/viewpage.action?pageId=194741479'
+
+[tool.setuptools]
+zip-safe = true
+package-data = {'*' = ['py.typed']}
 
 [tool.setuptools_scm]
 
@@ -15,15 +60,22 @@ include = '\.pyi?$'
 [tool.isort]
 profile = 'black'
 
-[tool.pylint.REPORTS]
+[tool.pytest.ini_options]
+addopts = "--doctest-modules"
+
+[tool.mypy]
+disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = ['gym.*', 'matplotlib.*']
+ignore_missing_imports = true
+
+[tool.pylint.reports]
 output-format = 'parseable'
 reports = false
 score = false
 
-[tool.pylint.'MESSAGES CONTROL']
+[tool.pylint.'messages control']
 disable = [
     'duplicate-code',
 ]
-
-[tool.pytest.ini_options]
-addopts = "--doctest-modules"
