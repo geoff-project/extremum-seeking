@@ -8,12 +8,12 @@ variables:
   project_name: cernml.extremum_seeking
 
 build_wheel:
-  extends:
-    - .acc_py_build_wheel
+  extends: .acc_py_build_wheel
 
 test_lint:
   extends:
     - .acc_py_run_on_manylinux_py_version
+    - .acc_py_run_on_all_currently_supported
   stage: test
   before_script:
     - !reference [.acc_py_run_on_manylinux_py_version, before_script]
@@ -23,7 +23,9 @@ test_lint:
     - ./run_linters.sh ./src ./examples ./tests
 
 test_dev:
-  extends: .acc_py_dev_test
+  extends:
+    - .acc_py_dev_test
+    - .acc_py_run_on_all_currently_supported
   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
   # Override `script` to change the precise pytest-cov arguments.
   script:
@@ -37,9 +39,11 @@ test_dev:
       --junitxml=junit-report.xml
 
 test_wheel:
+  extends:
+    - .acc_py_wheel_test
+    - .acc_py_run_on_all_currently_supported
   variables:
     PYTEST_ADDOPTS: "-c ${CI_PROJECT_DIR}/pyproject.toml"
-  extends: .acc_py_wheel_test
 
 publish:
   extends: .acc_py_publish
