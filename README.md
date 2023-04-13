@@ -19,7 +19,7 @@ leave the control loop in the caller's hand.
 
 This repository can be found online on CERN's [Gitlab][].
 
-[Gitlab]: https://gitlab.cern.ch/be-op-ml-optimization/cernml-extremum-seeking/
+[Gitlab]: https://gitlab.cern.ch/geoff/optimizers/cernml-extremum-seeking/
 
 ## Installation
 
@@ -33,7 +33,7 @@ pip install cernml-extremum-seeking
 To use the source repository, you must first install it as well:
 
 ```shell
-git clone https://gitlab.cern.ch/be-op-ml-optimization/cernml-extremum-seeking.git
+git clone https://gitlab.cern.ch/geoff/optimizers/cernml-extremum-seeking.git
 cd ./cernml-extremum-seeking/
 pip install .
 ```
