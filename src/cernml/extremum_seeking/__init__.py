@@ -48,23 +48,23 @@ Running an optimization loop:
 
     >>> res = seeker.optimize(cost_function, x0, max_calls=10)
     >>> print(res)
-    params: array([ 0.16998328, -0.09349066])
-      cost: 0.1895720815951993
+    params: [ 0.16998328 -0.09349066]
+      cost: 0.18957208
        nit: 10
 
 
 Running an optimization loop until the cost is sufficiently small:
 
     >>> res = seeker.optimize(cost_function, x0, cost_goal=0.01)
-    >>> cost_function(res.params)
-    0.01050409604837506
+    >>> round(cost_function(res.params), 6)
+    0.010504
 
 Passing a callback function to the optimization loop:
 
     >>> def printer(seeker: ExtremumSeeker, iteration: Iteration):
-    ...     print("Cost:", iteration.cost)
+    ...     print("Cost:", round(iteration.cost, 6))
     >>> _ = seeker.optimize(cost_function, x0, max_calls=1, callbacks=printer)
-    Cost: 0.6215048967082203
+    Cost: 0.621505
 
 Passing multiple callbacks, one of which ends the loop immediately by
 returning :obj:`True`:
@@ -163,8 +163,8 @@ def optimize(
         ...     return np.mean(x*x)
         >>> res = optimize(cost_function, x0=np.zeros(2), max_calls=10)
         >>> print(res)
-        params: array([-0.04486473, -0.06264948])
-          cost: 0.0029689006651717935
+        params: [-0.04486473 -0.06264948]
+          cost: 0.0029689
            nit: 10
     """
     seeker = ExtremumSeeker(
@@ -200,9 +200,14 @@ class OptimizeResult:
     nit: int = 0
 
     def __str__(self) -> str:
+        # Wrap cost and nit in NumPy scalars so that they obey
+        # `np.printoptions`:
         fields = vars(self)
-        width = max(map(len, fields.keys()))
-        return "\n".join(f"{name:>{width}}: {val!r}" for name, val in fields.items())
+        width = max(map(len, fields))
+        return "\n".join(
+            f"{name:>{width}}: {_PrintOptionsAdapter(val)!s}"
+            for name, val in fields.items()
+        )
 
 
 @dataclass
@@ -258,8 +263,8 @@ class ExtremumSeeker:
         >>> seeker = ExtremumSeeker(gain=2)
         >>> res = seeker.optimize(func, np.zeros(3), max_calls=10)
         >>> print(res)
-        params: array([-0.04615712, -0.12537423, -0.06140994])
-          cost: 0.007206786055327231
+        params: [-0.04615712 -0.12537423 -0.06140994]
+          cost: 0.00720679
            nit: 10
     """
 
@@ -423,8 +428,8 @@ class ExtremumSeeker:
             ...     cost_function, x0=np.zeros(2), max_calls=10
             ... )
             >>> print(res)
-            params: array([-0.04486473, -0.06264948])
-              cost: 0.0029689006651717935
+            params: [-0.04486473 -0.06264948]
+              cost: 0.0029689
                nit: 10
         """
         # Special case max_calls==0: Avoid calling any part of the
@@ -525,3 +530,17 @@ def _check_bounds_shape(ndim: int, lower: np.ndarray, upper: np.ndarray) -> None
             f"upper bound has wrong shape: expected ({ndim},), "
             f"found {np.shape(upper)}"
         )
+
+
+class _PrintOptionsAdapter:
+    """Make scalars obey `np.printoptions()`."""
+
+    # pylint: disable = too-few-public-methods
+
+    def __init__(self, value: t.Any) -> None:
+        self._value = value
+
+    def __str__(self) -> str:
+        if np.isscalar(self._value):
+            return str(np.array([self._value]))[1:-1]
+        return str(self._value)
