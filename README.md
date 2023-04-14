@@ -26,6 +26,8 @@ This repository can be found online on CERN's [Gitlab][].
 To install this package from the [Acc-Py Repository][], simply run the
 following line while on the CERN network:
 
+[Acc-Py Repository]: https://wikis.cern.ch/display/ACCPY/Getting+started+with+Acc-Py
+
 ```shell
 pip install cernml-extremum-seeking
 ```
