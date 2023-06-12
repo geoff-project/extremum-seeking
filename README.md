@@ -21,6 +21,10 @@ This repository can be found online on CERN's [Gitlab][].
 
 [Gitlab]: https://gitlab.cern.ch/geoff/optimizers/cernml-extremum-seeking/
 
+## Table of Contents
+
+[[_TOC_]]
+
 ## Installation
 
 To install this package from the [Acc-Py Repository][], simply run the
