@@ -127,3 +127,20 @@ returning :obj:`True`:
 foo
 bar
 ```
+
+## Citation
+
+To cite this package in a publication, you can use the following BibTeX
+template:
+
+```bibtex
+@online{cernml-es,
+    author={Nico Madysa and Verena Kain},
+    title={CERNML Extremum Seeking},
+    version={3.0.0},
+    date={2023-06-12},
+    organization={CERN},
+    url={https://gitlab.cern.ch/geoff/optimizers/cernml-extremum-seeking/-/tags/v3.0.0},
+    urldate={<whenever you've last verified your online sources>},
+}
+```
