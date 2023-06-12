@@ -74,6 +74,8 @@ testpaths = ['src', 'tests']
 
 [tool.mypy]
 disallow_untyped_defs = true
+explicit_package_bases = true
+mypy_path = '$MYPY_CONFIG_FILE_DIR/src'
 
 [[tool.mypy.overrides]]
 module = ['gym.*', 'matplotlib.*']
