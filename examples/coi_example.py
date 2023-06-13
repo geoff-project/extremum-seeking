@@ -6,7 +6,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later OR EUPL-1.2+
 
-"""Combination of Extremum Seeking and the Common Optimization Interfaces.
+"""Combination of Extremum Seeking and Common Optimization Interfaces.
 
 This example shows the same basic game as ``simple_example.py``. But
 instead of running on a bare callback function, we package the controls

@@ -46,6 +46,8 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
+# If you update these dependencies, also update
+# .pre-commit-config.yaml/mypy/additional_dependencies.
 examples = [
     'cernml-coi ~= 0.8.0',
     'cernml-coi-utils[matplotlib] ~= 0.2.0',
@@ -53,13 +55,6 @@ examples = [
 test = [
     'pytest',
     'pytest-cov',
-]
-lint = [
-    'black',
-    'isort',
-    'mypy',
-    'pylint',
-    'reuse',
 ]
 
 [project.urls]
@@ -86,7 +81,11 @@ testpaths = ['src', 'tests']
 [tool.mypy]
 disallow_untyped_defs = true
 explicit_package_bases = true
-mypy_path = '$MYPY_CONFIG_FILE_DIR/src'
+mypy_path = [
+    '$MYPY_CONFIG_FILE_DIR/src',
+    '$MYPY_CONFIG_FILE_DIR/examples',
+    '$MYPY_CONFIG_FILE_DIR/tests',
+]
 
 [[tool.mypy.overrides]]
 module = ['gym.*', 'matplotlib.*']

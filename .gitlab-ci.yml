@@ -16,17 +16,13 @@ variables:
 build_wheel:
   extends: .acc_py_build_wheel
 
-test_lint:
-  extends:
-    - .acc_py_run_on_manylinux_py_version
-    - .acc_py_run_on_all_currently_supported
-  stage: test
+test_pre-commit:
+  variables:
+    PY_VERSION: "3.11"
+  extends: .acc_py_pre-commit
   before_script:
-    - !reference [.acc_py_run_on_manylinux_py_version, before_script]
-    - python -m pip install ${project_root}[lint,test,examples]
-  script:
-    - cd ${project_root}
-    - ./run_linters.sh ./src ./examples ./tests
+    - !reference [.acc_py_pre-commit, before_script]
+    - python -m pip install pylint mypy .[examples,test]
 
 test_dev:
   extends:
