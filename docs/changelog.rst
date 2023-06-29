@@ -13,6 +13,11 @@ Changelog
 Unreleased
 ----------
 
+No changes yet!
+
+v3.0.2
+------
+
 - ADD: Publish this documentation.
 
 v3.0.1
