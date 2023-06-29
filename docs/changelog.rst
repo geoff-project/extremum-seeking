@@ -15,6 +15,11 @@ Unreleased
 
 No changes yet!
 
+v3.0.3
+------
+
+- FIX: Build both stable and development docs on Python 3.9.
+
 v3.0.2
 ------
 
