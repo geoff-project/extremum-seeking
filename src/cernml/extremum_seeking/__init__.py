@@ -6,22 +6,25 @@
 
 """Implementation of extremum-seeking control.
 
-This implementation follows the description by [Scheinker et al.][1].
-The core idea is to let the parameters oscillate around a center point
-and have the phase advance of the oscillation depend on the cost
-function. ES spends more time where the cost function is low and less
-time where it is high. This causes a slow drift in the parameter space
-towards global minima.
+This implementation follows the description by `Scheinker et al.`_. The
+core idea is to let the parameters oscillate around a center point and
+have the phase advance of the oscillation depend on the cost function.
+ES spends more time where the cost function is low and less time where
+it is high. This causes a slow drift in the parameter space towards
+global minima.
 
-[1]: https://doi.org/10.1002/acs.3097
+.. _Scheinker et al.: https://doi.org/10.1002/acs.3097
 
 The extremum seeking algorithm provides both an interface for numeric
 optimization (locating an optimum) and for adaptive control (tracking a
 drifting/noisy optimum). It also provides a coroutine-based interface,
-:meth:`~ExtremumSeeker.make_generator()`, to leave the control loop in
-the caller's hand.
+`~ExtremumSeeker.make_generator()`, to leave the control loop in the
+caller's hand.
 
-Defining a cost function and creating an :class:`ExtremumSeeker` object:
+Small examples
+--------------
+
+Defining a cost function and creating an `ExtremumSeeker` object:
 
     >>> rng = np.random.default_rng(0)
     >>> loc = np.zeros(2)
@@ -73,7 +76,7 @@ Passing a callback function to the optimization loop:
     Cost: 0.621505
 
 Passing multiple callbacks, one of which ends the loop immediately by
-returning :obj:`True`:
+returning `True`:
 
     >>> def make_printer(text: str) -> Callback:
     ...     def callback(*args):
@@ -88,6 +91,9 @@ returning :obj:`True`:
     ... )
     foo
     bar
+
+The :doc:`/examples/index` page contains more comprehensive example
+programs.
 """
 
 from __future__ import annotations
@@ -98,20 +104,20 @@ from dataclasses import dataclass
 import numpy as np
 
 Bounds = t.Tuple[np.ndarray, np.ndarray]
-"""Type alias for the parameter bounds.
+"""Lower and upper bounds for the search space.
 
-Bounds are specified as a tuple ``(lower, upper)`` with the same shape
-as the parameters.
+Bounds are specified as a tuple :samp:`({lower}, {upper})` with the same
+shape as the parameters.
 """
 
 Callback = t.Callable[["ExtremumSeeker", "Iteration"], t.Optional[bool]]
-"""Signature of callbacks for :func:`optimize`.
+"""Signature of callbacks for `optimize`.
 
 Each callback is called at the end of each iteration with 2 arguments:
-the :class:`ExtremumSeeker` instance and the current :class:`Iteration`.
+the `ExtremumSeeker` instance and the current `Iteration`.
 
 If any callback returns any truth-like value, optimization terminates.
-If the return value is false-like (including :obj:`None`), optimization
+If the return value is false-like (including `None`), optimization
 continues. This is so that a callback without return value never
 terminates the optimization.
 """
@@ -124,7 +130,7 @@ def optimize(
     max_calls: t.Optional[int] = None,
     cost_goal: t.Optional[float] = None,
     callbacks: t.Union[Callback, t.Iterable[Callback]] = (),
-    bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = None,
+    bounds: t.Optional[Bounds] = None,
     gain: float = 0.2,
     oscillation_size: float = 0.1,
     oscillation_sampling: int = 10,
@@ -137,16 +143,16 @@ def optimize(
         max_calls: If passed, end the generator after this many
             steps.
         cost_goal: If passed, end optimization once this threshold is
-            crossed. if :attr:`gain` is positive (the default), the cost
-            must be less than *cost_goal* to end optimization. If
-            :attr:`gain` is negative, the cost must be greater.
+            crossed. if *gain* is positive (the default), the cost must
+            be less than *cost_goal* to end optimization. If *gain* is
+            negative, the cost must be greater.
         callbacks: If passed, should be either a callback function or a
             list of them. They are called on each iteration with 3
-            arguments: the :class:`ExtremumSeeker` instance, the current
-            set of parameters, and the cost associated with these
-            parameters. If any callback returns a truth-like value,
-            optimization terminates.
-        bounds: If passed, a tuple ``(lower, upper)`` of bounds
+            arguments: the `ExtremumSeeker` instance, the current set of
+            parameters, and the cost associated with these parameters.
+            If any callback returns a truth-like value, optimization
+            terminates.
+        bounds: If passed, a tuple :samp:`({lower}, {upper})` of bounds
             within which the updated parameters should lie.
         gain: Scaling factor that is applied to the cost function. If
             positive (the default), the controller minimizes the cost
@@ -157,11 +163,12 @@ def optimize(
             oscillation period. Larger values mean smaller time steps.
         decay_rate: An optional factor between 0 and 1 that reduces the
             *oscillation_size* after each step. Only used by
-            :meth:`make_generator()` and :meth:`optimize()`.
+            `ExtremumSeeker.make_generator()` and
+            `ExtremumSeeker.optimize()`.
 
     Returns:
-        If *max_calls* has been supplied, this returns the final set
-        of parameters. Otherwise, this method never returns.
+        If *max_calls* has been supplied, this returns the final set of
+        parameters. Otherwise, this method never returns.
 
     Example:
 
@@ -191,13 +198,13 @@ def optimize(
 
 @dataclass
 class OptimizeResult:
-    """The return value of :meth:`~ExtremumSeeker.optimize()`.
+    """The return value of `optimize()`.
 
     Args:
         params: The final set of parameters.
         cost: Corresponding value of the cost function. If the cost
             function was never evaluated or immediately raised an
-            exception, this value is :obj:`~np.nan`.
+            exception, this value is `~numpy.nan`.
         nit: The number of cost function evaluations.
     """
 
@@ -226,7 +233,7 @@ class Iteration:
         params: The current set of parameters.
         cost: The cost associated with *params*.
         amplitude: An additional scaling factor applied to
-            :attr:`ExtremumSeeker.oscillation_size`. This is used to
+            the *oscillation_size* of `ExtremumSeeker`. This is used to
             decay or otherwise dynamically adjust the dithering
             amplitudes.
         bounds: An optional set of bounds on the parameters. If
@@ -254,7 +261,7 @@ class ExtremumSeeker:
             oscillation period. Larger values mean smaller time steps.
         decay_rate: An optional factor between 0 and 1 that reduces the
             *oscillation_size* after each step. Only used by
-            :meth:`make_generator()` and :meth:`optimize()`.
+            `make_generator()` and `optimize()`.
 
     Attributes:
         gain: The cost function scaling factor.
@@ -319,7 +326,7 @@ class ExtremumSeeker:
         cost: float,
         step: int,
         amplitude: float = 1.0,
-        bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = None,
+        bounds: t.Optional[Bounds] = None,
     ) -> np.ndarray:
         """Perform one step of the ES algorithm.
 
@@ -327,10 +334,10 @@ class ExtremumSeeker:
             params: The previous set of parameters.
             cost: The cost associated with the previous parameters.
             step: The index of the current step.
-            amplitude: Scaling factor on :attr:`oscillation_size`, can
+            amplitude: Scaling factor on *oscillation_size*; can
                 be used to implement amplitude decay.
-            bounds: If passed, a tuple ``(lower, upper)`` of bounds
-                within which the updated parameters should lie.
+            bounds: If passed, a tuple :samp:`({lower}, {upper})` of
+                bounds within which the updated parameters should lie.
 
         Returns:
             The next set of parameters. An array with the same shape as
@@ -349,21 +356,21 @@ class ExtremumSeeker:
         self,
         x0: np.ndarray,  # pylint: disable=invalid-name
         *,
-        bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = None,
+        bounds: t.Optional[Bounds] = None,
     ) -> t.Generator[Iteration, float, None]:
         """Create a generator of parameter suggestions.
 
         Args:
             x0: The initial set of parameters to suggest.
-            bounds: If passed, a tuple ``(lower, upper)`` of bounds
-                within which the updated parameters should lie.
+            bounds: If passed, a tuple :samp:`({lower}, {upper})` of
+                bounds within which the updated parameters should lie.
 
         Returns:
             A generator *gen* that yields arrays, each of them being a
-            result of :meth:`calc_next_step()`. The next cost function
-            value is passed in via ``gen.send(cost)``. After *max_calls*
-            steps, the generator raises :exc:`StopIteration` with the
-            final set of parameters as value.
+            result of `calc_next_step()`. The next cost function value
+            is passed in via :samp:`gen.send({cost})`. After *max_calls*
+            steps, the generator raises `StopIteration` with the final
+            set of parameters as value.
 
         Example:
 
@@ -400,7 +407,7 @@ class ExtremumSeeker:
         max_calls: t.Optional[int] = None,
         cost_goal: t.Optional[float] = None,
         callbacks: t.Union[Callback, t.Iterable[Callback]] = (),
-        bounds: t.Optional[t.Tuple[np.ndarray, np.ndarray]] = None,
+        bounds: t.Optional[Bounds] = None,
     ) -> OptimizeResult:
         """Run an optimization loop using ES.
 
@@ -409,17 +416,16 @@ class ExtremumSeeker:
             max_calls: If passed, end the generator after this many
                 steps.
             cost_goal: If passed, end optimization once this threshold
-                is crossed. if :attr:`gain` is positive (the default),
-                the cost must be less than *cost_goal* to end
-                optimization. If :attr:`gain` is negative, the cost must
-                be greater.
+                is crossed. if *gain* is positive (the default), the
+                cost must be less than *cost_goal* to end optimization.
+                If *gain* is negative, the cost must be greater.
             callbacks: If passed, should be either a callback function
                 or a list of them. They are called on each iteration
-                with 2 arguments: the :class:`ExtremumSeeker` instance
-                and the current :class:`Iteration`. If any callback
-                returns any truth-like value, optimization terminates.
-            bounds: If passed, a tuple ``(lower, upper)`` of bounds
-                within which the updated parameters should lie.
+                with 2 arguments: the `ExtremumSeeker` instance and the
+                current `Iteration`. If any callback returns any
+                truth-like value, optimization terminates.
+            bounds: If passed, a tuple :samp:`({lower}, {upper})` of
+                bounds within which the updated parameters should lie.
 
         Returns:
             If *max_calls* has been supplied, this returns the final set

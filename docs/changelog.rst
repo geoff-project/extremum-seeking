@@ -1,0 +1,51 @@
+..
+    SPDX-FileCopyrightText: 2020-2023 CERN
+    SPDX-FileCopyrightText: 2023 GSI Helmholtzzentrum für Schwerionenforschung
+    SPDX-FileNotice: All rights not expressly granted are reserved.
+
+    SPDX-License-Identifier: GPL-3.0-or-later OR EUPL-1.2+
+
+Changelog
+=========
+
+.. currentmodule:: cernml.extremum_seeking
+
+Unreleased
+----------
+
+- ADD: Publish this documentation.
+
+v3.0.1
+------
+
+- OTHER: Start using `pre-commit <https://pre-commit.com/>`_.
+- OTHER: Open-source the package by adding license information.
+- OTHER: Extend :file:`README.md`, fix broken link.
+- OTHER: Improve Mypy namespace package detection.
+- OTHER: Shorten :file:`.gitignore` file.
+
+v3.0.0
+------
+
+- BREAKING: When printing an `OptimizeResult`, the scalars ``cost`` and ``nit`` now also honor :external+np:func:`numpy.set_printoptions()`.
+- ADD: Support for Python 3.9.
+- OTHER: Change project URL.
+- OTHER: Replace :file:`setup.cfg` with :file:`pyproject.toml`
+
+v2.0.0
+------
+
+- BREAKING: Change arguments passed to `Callback` from ``(ExtremumSeeker, ndarray, float)`` to ``(ExtremumSeeker, Iteration)``, where the latter contains the arguments that it replaces and some more information.
+- BREAKING: Change signature of `~ExtremumSeeker.calc_next_step()` and `~ExtremumSeeker.make_generator()` to yield new type `Iteration` instead of bare arrays.
+- BREAKING: Remove enum ``OptimizationStatus``
+- BREAKING: Remove attributes/properties ``status``, ``success`` and ``message`` from `OptimizeResult`
+- BREAKING: Rename `OptimizeResult` attribute ``x`` to ``params`` and ``fun`` to ``cost``.
+- ADD: type alias `Bounds`
+- ADD: dataclass `Iteration` to pass more information back and forth
+- FIX: Tweak the precise timing of callbacks and loop termination, ensure that ``params`` and ``cost`` are always in-sync.
+- FIX: Remove `~typing.NoReturn` from `optimize()` signature since it ignores the impact of callbacks.
+
+v1.0.0
+------
+
+- Initial release

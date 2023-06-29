@@ -136,6 +136,28 @@ foo
 bar
 ```
 
+The [Examples](/examples) directory contains more comprehensive example
+programs.
+
+Stability
+---------
+
+This package uses [Semantic Versioning](https://semver.org/).
+
+Changelog
+---------
+
+[See here](https://acc-py.web.cern.ch/gitlab/geoff/optimizers/cernml-extremum-seeking/docs/stable/changelog.html).
+
+Documentation
+-------------
+
+Inside the CERN network, you can read the package documentation on the [Acc-Py
+documentation server][acc-py-docs]. The API is also documented via extensive
+Python docstrings.
+
+[acc-py-docs]: https://acc-py.web.cern.ch/gitlab/geoff/optimizers/cernml-extremum-seeking/
+
 ## Citation
 
 To cite this package in a publication, you can use the following BibTeX
