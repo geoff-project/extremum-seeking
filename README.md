@@ -139,16 +139,6 @@ bar
 The [Examples](/examples) directory contains more comprehensive example
 programs.
 
-Stability
----------
-
-This package uses [Semantic Versioning](https://semver.org/).
-
-Changelog
----------
-
-[See here](https://acc-py.web.cern.ch/gitlab/geoff/optimizers/cernml-extremum-seeking/docs/stable/changelog.html).
-
 Documentation
 -------------
 
@@ -174,6 +164,16 @@ template:
     urldate={<whenever you've last verified your online sources>},
 }
 ```
+
+Changelog
+---------
+
+[See here](https://acc-py.web.cern.ch/gitlab/geoff/optimizers/cernml-extremum-seeking/docs/stable/changelog.html).
+
+Stability
+---------
+
+This package uses [Semantic Versioning](https://semver.org/).
 
 License
 -------
