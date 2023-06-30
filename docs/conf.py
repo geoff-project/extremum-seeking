@@ -86,8 +86,8 @@ autodoc_default_options = {
     "show-inheritance": True,
 }
 autodoc_type_aliases = {
-    "Callback": "cernml.extremum_seeking.Callback",
-    "Bounds": "cernml.extremum_seeking.Bounds",
+    "Callback": "~cernml.extremum_seeking.Callback",
+    "Bounds": "~cernml.extremum_seeking.Bounds",
 }
 
 napoleon_google_docstring = True
@@ -134,10 +134,8 @@ def fix_broken_crossrefs(
     """
     if node["reftarget"].startswith("cernml.extremum_seeking."):
         domain = env.domains[node["refdomain"]]
-        # Shorten the text from `module.item` to `item`.
-        contnode = nodes.Text(contnode.astext().rsplit(".")[-1])
         return domain.resolve_xref(
-            env, node["refdoc"], app.builder, "data", node["reftarget"], node, contnode
+            env, node["refdoc"], app.builder, "obj", node["reftarget"], node, contnode
         )
     return None
 
