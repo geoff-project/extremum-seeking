@@ -224,6 +224,7 @@ class OptimizeResult:
         )
 
 
+# TODO: Consider adding `slots=True` once we only support Python 3.10+.
 @dataclass
 class Iteration:
     """Iteration-specific data for the ES algorithm.
@@ -554,6 +555,8 @@ class _PrintOptionsAdapter:
     """Make scalars obey `np.printoptions()`."""
 
     # pylint: disable = too-few-public-methods
+
+    __slots__ = ("_value",)
 
     def __init__(self, value: t.Any) -> None:
         self._value = value

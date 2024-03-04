@@ -121,5 +121,6 @@ score = false
 [tool.pylint.'messages control']
 disable = [
     'duplicate-code',
+    'fixme',
     'too-many-arguments',
 ]
