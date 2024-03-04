@@ -53,7 +53,7 @@ examples = [
     'cernml-coi-utils[matplotlib] ~= 0.2.0',
 ]
 doc = [
-    'Sphinx',
+    'Sphinx >= 7.1',
     'importlib-metadata; python_version<"3.10"',
 ]
 test = [
