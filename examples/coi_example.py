@@ -127,7 +127,7 @@ class HideAndSeekGame(coi.SingleOptimizable):
             # Apply the new bounding box.
             ax_history.autoscale_view(scaley=False)
 
-    def render(self, mode: str = "human") -> mpl_utils.MatplotlibFigures:
+    def render(self, mode: str = "human") -> t.Optional[mpl_utils.MatplotlibFigures]:
         if mode in ["human", "matplotlib_figures"]:
             return self.renderer.update(mode)
         return super().render(mode)
