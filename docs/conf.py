@@ -45,10 +45,27 @@ ROOTDIR = pathlib.Path(__file__).absolute().parent.parent
 
 # -- Project information -----------------------------------------------
 
+
 project = "cernml-extremum-seeking"
+dist = metadata.distribution(project)
+
 copyright = "2020–2023 CERN, 2023 GSI Helmholtzzentrum für Schwerionenforschung"
 author = "Nico Madysa"
-release = metadata.version(project)
+release = dist.version
+version = release.partition("+")[0]
+html_last_updated_fmt = "%b %d %Y"
+
+for entry in dist.metadata.get_all("Project-URL", []):
+    kind, url = entry.split(", ")
+    if kind == "gitlab":
+        gitlab_url = url
+        license_url = f"{gitlab_url}-/blob/master/COPYING"
+        issues_url = f"{gitlab_url}/-/issues"
+        break
+else:
+    gitlab_url = ""
+    license_url = ""
+    issues_url = ""
 
 # -- General configuration ---------------------------------------------
 
@@ -82,6 +99,19 @@ default_role = "py:obj"
 
 maximum_signature_line_length = 88
 
+# -- Options for HTML output -------------------------------------------
+
+# The theme to use for HTML and HTML Help pages.  See the documentation
+# for a list of builtin themes.
+html_theme = "python_docs_theme"
+html_theme_options = {
+    "root_url": "https://acc-py.web.cern.ch/",
+    "root_name": "Acc-Py Documentation server",
+    "license_url": license_url,
+    "issues_url": issues_url,
+}
+templates_path = ["./_theme/"]
+
 # -- Options for Autodoc -----------------------------------------------
 
 autodoc_member_order = "bysource"
@@ -112,12 +142,6 @@ intersphinx_mapping = {
     "np": ("https://numpy.org/doc/stable/", None),
     "std": ("https://docs.python.org/3/", None),
 }
-
-# -- Options for HTML output -------------------------------------------
-
-# The theme to use for HTML and HTML Help pages.  See the documentation
-# for a list of builtin themes.
-html_theme = "sphinxdoc"
 
 # -- Custom code -------------------------------------------------------
 

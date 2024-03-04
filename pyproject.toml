@@ -54,6 +54,7 @@ examples = [
 ]
 doc = [
     'Sphinx >= 7.1',
+    'python-docs-theme',
     'importlib-metadata; python_version<"3.10"',
 ]
 test = [
