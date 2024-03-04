@@ -13,7 +13,10 @@ Changelog
 Unreleased
 ----------
 
-No changes yet!
+- BREAKING: Drop support for Python 3.7 and 3.8.
+- BREAKING: Increase required NumPy version to 1.23.
+- ADD: Where possible, functions now accept `typing.SupportsFloat` instead of
+  `float`.
 
 v3.0.3
 ------
