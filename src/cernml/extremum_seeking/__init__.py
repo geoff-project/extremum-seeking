@@ -28,7 +28,7 @@ Defining a cost function and creating an `ExtremumSeeker` object:
 
     >>> rng = np.random.default_rng(0)
     >>> loc = np.zeros(2)
-    >>> def cost_function(params: np.ndarray) -> float:
+    >>> def cost_function(params: NDArray[np.floating]) -> float:
     ...     drift = rng.normal(scale=1e-2, size=loc.shape)
     ...     noise = rng.normal(scale=1e-3, size=loc.shape)
     ...     loc[:] += drift
@@ -102,8 +102,9 @@ import typing as t
 from dataclasses import dataclass
 
 import numpy as np
+from numpy.typing import NDArray
 
-Bounds = t.Tuple[np.ndarray, np.ndarray]
+Bounds = t.Tuple[NDArray[np.floating], NDArray[np.floating]]
 """Lower and upper bounds for the search space.
 
 Bounds are specified as a tuple :samp:`({lower}, {upper})` with the same
@@ -124,8 +125,8 @@ terminates the optimization.
 
 
 def optimize(
-    func: t.Callable[[np.ndarray], float],
-    x0: np.ndarray,  # pylint: disable=invalid-name
+    func: t.Callable[[NDArray[np.floating]], t.SupportsFloat],
+    x0: NDArray[np.floating],  # pylint: disable=invalid-name
     *,
     max_calls: t.Optional[int] = None,
     cost_goal: t.Optional[float] = None,
@@ -208,7 +209,7 @@ class OptimizeResult:
         nit: The number of cost function evaluations.
     """
 
-    params: np.ndarray
+    params: NDArray[np.double]
     cost: float = np.nan
     nit: int = 0
 
@@ -240,7 +241,7 @@ class Iteration:
             supplied, they will be clipped to this space.
     """
 
-    params: np.ndarray
+    params: NDArray[np.floating]
     cost: float = np.nan
     nit: int = 0
     amplitude: float = 1.0
@@ -309,7 +310,7 @@ class ExtremumSeeker:
         """
         return 2 * np.pi / (self.oscillation_sampling * self._W_MAX)
 
-    def get_dithering_freqs(self, ndim: int) -> np.ndarray:
+    def get_dithering_freqs(self, ndim: int) -> "NDArray[np.double]":
         """Calculate the frequencies necessary for dithering.
 
         This returns a 1D array of length *ndim*, one for each parameter
@@ -320,13 +321,13 @@ class ExtremumSeeker:
 
     def calc_next_step(
         self,
-        params: np.ndarray,
+        params: NDArray[np.floating],
         *,
         cost: float,
         step: int,
         amplitude: float = 1.0,
         bounds: t.Optional[Bounds] = None,
-    ) -> np.ndarray:
+    ) -> NDArray[np.floating]:
         """Perform one step of the ES algorithm.
 
         Args:
@@ -348,15 +349,17 @@ class ExtremumSeeker:
             >>> seeker.calc_next_step(np.zeros(2), cost=0.0, step=0)
             array([0.03590392, 0.06283185])
         """
-        iteration = Iteration(params, cost, step, amplitude, bounds)
+        iteration = Iteration(
+            np.asfarray(params), cost=cost, nit=step, amplitude=amplitude, bounds=bounds
+        )
         return _calc_next_step(self, iteration)
 
     def make_generator(
         self,
-        x0: np.ndarray,  # pylint: disable=invalid-name
+        x0: NDArray[np.floating],  # pylint: disable=invalid-name
         *,
         bounds: t.Optional[Bounds] = None,
-    ) -> t.Generator[Iteration, float, None]:
+    ) -> t.Generator[Iteration, t.SupportsFloat, None]:
         """Create a generator of parameter suggestions.
 
         Args:
@@ -385,12 +388,14 @@ class ExtremumSeeker:
             >>> it.params
             array([-0.07720379,  0.00018237])
         """
-        iteration = Iteration(np.copy(x0), bounds=bounds)
+        iteration = Iteration(np.asfarray(x0), bounds=bounds)
         while True:
             iteration.nit += 1
-            iteration.cost = yield iteration
-            if iteration.cost is None:
+            # Avoid issue pylint#9480
+            cost = yield iteration
+            if cost is None:
                 raise TypeError("no cost passed; make sure to call `self.send(cost)`")
+            iteration.cost = float(cost)
             if np.isnan(iteration.cost):
                 raise ValueError(
                     f"cost is NaN (not a number) after {iteration.nit} ES step(s)"
@@ -400,8 +405,8 @@ class ExtremumSeeker:
 
     def optimize(
         self,
-        func: t.Callable[[np.ndarray], float],
-        x0: np.ndarray,  # pylint: disable=invalid-name
+        func: t.Callable[[NDArray[np.floating]], t.SupportsFloat],
+        x0: NDArray[np.floating],  # pylint: disable=invalid-name
         *,
         max_calls: t.Optional[int] = None,
         cost_goal: t.Optional[float] = None,
@@ -446,14 +451,14 @@ class ExtremumSeeker:
         # Special case max_calls==0: Avoid calling any part of the
         # optimization loop, just return immediately.
         if max_calls is not None and max_calls <= 0:
-            return OptimizeResult(x0)
+            return OptimizeResult(np.asfarray(x0))
         callbacks = _consolidate_callbacks(callbacks, max_calls, cost_goal)
         generator = self.make_generator(x0, bounds=bounds)
         iteration = next(generator)
-        iteration.cost = func(iteration.params)
+        iteration.cost = float(func(iteration.params))
         while not callbacks(self, iteration):
             iteration = generator.send(iteration.cost)
-            iteration.cost = func(iteration.params)
+            iteration.cost = float(func(iteration.params))
         return _make_result_from_iteration(iteration)
 
 
@@ -506,10 +511,10 @@ def _make_result_from_iteration(iteration: Iteration) -> OptimizeResult:
     return OptimizeResult(iteration.params, iteration.cost, iteration.nit)
 
 
-def _calc_next_step(seeker: ExtremumSeeker, data: Iteration) -> np.ndarray:
+def _calc_next_step(seeker: ExtremumSeeker, data: Iteration) -> NDArray[np.double]:
     """Perform one step of the ES algorithm."""
     # Ensure that we have a flat array.
-    params = np.asanyarray(data.params)
+    params = np.asfarray(data.params)
     [ndim] = params.shape
     time_step = seeker.get_time_step()
     # Choose frequency different for each dimension without
@@ -530,7 +535,9 @@ def _calc_next_step(seeker: ExtremumSeeker, data: Iteration) -> np.ndarray:
     return next_params
 
 
-def _check_bounds_shape(ndim: int, lower: np.ndarray, upper: np.ndarray) -> None:
+def _check_bounds_shape(
+    ndim: int, lower: NDArray[np.floating], upper: NDArray[np.floating]
+) -> None:
     if np.shape(lower) != (ndim,):
         raise ValueError(
             f"lower bound has wrong shape: expected ({ndim},), "
