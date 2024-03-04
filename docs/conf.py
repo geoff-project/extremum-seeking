@@ -27,6 +27,7 @@ import typing as t
 
 from docutils import nodes
 from sphinx import addnodes
+from sphinx.ext import intersphinx
 
 if sys.version_info < (3, 10):
     import importlib_metadata as metadata
@@ -86,8 +87,9 @@ autodoc_default_options = {
     "show-inheritance": True,
 }
 autodoc_type_aliases = {
-    "Callback": "~cernml.extremum_seeking.Callback",
-    "Bounds": "~cernml.extremum_seeking.Bounds",
+    "Callback": "cernml.extremum_seeking.Callback",
+    "Bounds": "cernml.extremum_seeking.Bounds",
+    "NDArray": "numpy.typing.NDArray",
 }
 
 napoleon_google_docstring = True
@@ -118,11 +120,34 @@ html_theme = "sphinxdoc"
 # -- Custom code -------------------------------------------------------
 
 
+def retry_resolve_xref(
+    app: Sphinx,
+    env: BuildEnvironment,
+    node: addnodes.pending_xref,
+    contnode: nodes.TextElement,
+) -> t.Optional[nodes.Element]:
+    """Run the resolve procedure again.
+
+    This should be called after `node` has been modified in some way. It
+    first tries the internal resolver before resorting to Intersphinx.
+    """
+    domain = env.domains[node["refdomain"]]
+    return domain.resolve_xref(
+        env,
+        node["refdoc"],
+        app.builder,
+        node["reftype"],
+        node["reftarget"],
+        node,
+        contnode,
+    ) or intersphinx.missing_reference(app, env, node, contnode)
+
+
 def fix_broken_crossrefs(
     app: Sphinx,
     env: BuildEnvironment,
     node: addnodes.pending_xref,
-    contnode: nodes.Node,
+    contnode: nodes.TextElement,
 ) -> t.Optional[nodes.Element]:
     """Handler for all missing references.
 
@@ -132,11 +157,21 @@ def fix_broken_crossrefs(
     This hook simply looks them up a second time with :role:`any` and
     returns whatever is found.
     """
-    if node["reftarget"].startswith("cernml.extremum_seeking."):
-        domain = env.domains[node["refdomain"]]
-        return domain.resolve_xref(
-            env, node["refdoc"], app.builder, "obj", node["reftarget"], node, contnode
-        )
+    if node["reftarget"].startswith("np."):
+        _, name = node["reftarget"].split(".")
+        node["reftarget"] = "numpy." + name
+        contnode = t.cast(nodes.TextElement, nodes.Text(name))
+        return retry_resolve_xref(app, env, node, contnode)
+    if node["reftarget"].startswith("t."):
+        _, name = node["reftarget"].split(".")
+        node["reftarget"] = "typing." + name
+        node["reftype"] = "obj"
+        contnode = t.cast(nodes.TextElement, nodes.Text(name))
+        return retry_resolve_xref(app, env, node, contnode)
+    if node["reftarget"] in autodoc_type_aliases:
+        node["reftarget"] = autodoc_type_aliases[node["reftarget"]]
+        node["reftype"] = "obj"
+        return retry_resolve_xref(app, env, node, contnode)
     return None
 
 

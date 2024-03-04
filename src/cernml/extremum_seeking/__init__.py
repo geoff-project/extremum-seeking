@@ -96,15 +96,13 @@ The :doc:`/examples/index` page contains more comprehensive example
 programs.
 """
 
-from __future__ import annotations
-
 import typing as t
 from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import NDArray
 
-Bounds = t.Tuple[NDArray[np.floating], NDArray[np.floating]]
+Bounds = tuple[NDArray[np.floating], NDArray[np.floating]]
 """Lower and upper bounds for the search space.
 
 Bounds are specified as a tuple :samp:`({lower}, {upper})` with the same
@@ -125,21 +123,22 @@ terminates the optimization.
 
 
 def optimize(
-    func: t.Callable[[NDArray[np.floating]], t.SupportsFloat],
-    x0: NDArray[np.floating],  # pylint: disable=invalid-name
+    func: t.Callable[["NDArray[np.floating]"], t.SupportsFloat],
+    x0: "NDArray[np.floating]",  # pylint: disable=invalid-name
     *,
     max_calls: t.Optional[int] = None,
     cost_goal: t.Optional[float] = None,
-    callbacks: t.Union[Callback, t.Iterable[Callback]] = (),
-    bounds: t.Optional[Bounds] = None,
+    callbacks: t.Union["Callback", t.Iterable["Callback"]] = (),
+    bounds: t.Optional["Bounds"] = None,
     gain: float = 0.2,
     oscillation_size: float = 0.1,
     oscillation_sampling: int = 10,
     decay_rate: float = 1.0,
-) -> OptimizeResult:
+) -> "OptimizeResult":
     """Run an optimization loop using ES.
 
     Args:
+        func: The objective function to minimize.
         x0: The initial set of parameters to suggest.
         max_calls: If passed, end the generator after this many
             steps.
@@ -209,7 +208,7 @@ class OptimizeResult:
         nit: The number of cost function evaluations.
     """
 
-    params: NDArray[np.double]
+    params: "NDArray[np.double]"
     cost: float = np.nan
     nit: int = 0
 
@@ -242,11 +241,11 @@ class Iteration:
             supplied, they will be clipped to this space.
     """
 
-    params: NDArray[np.floating]
+    params: "NDArray[np.double]"
     cost: float = np.nan
     nit: int = 0
     amplitude: float = 1.0
-    bounds: t.Optional[Bounds] = None
+    bounds: t.Optional["Bounds"] = None
 
 
 class ExtremumSeeker:
@@ -322,13 +321,13 @@ class ExtremumSeeker:
 
     def calc_next_step(
         self,
-        params: NDArray[np.floating],
+        params: "NDArray[np.floating]",
         *,
         cost: float,
         step: int,
         amplitude: float = 1.0,
-        bounds: t.Optional[Bounds] = None,
-    ) -> NDArray[np.floating]:
+        bounds: t.Optional["Bounds"] = None,
+    ) -> "NDArray[np.double]":
         """Perform one step of the ES algorithm.
 
         Args:
@@ -357,9 +356,9 @@ class ExtremumSeeker:
 
     def make_generator(
         self,
-        x0: NDArray[np.floating],  # pylint: disable=invalid-name
+        x0: "NDArray[np.floating]",  # pylint: disable=invalid-name
         *,
-        bounds: t.Optional[Bounds] = None,
+        bounds: t.Optional["Bounds"] = None,
     ) -> t.Generator[Iteration, t.SupportsFloat, None]:
         """Create a generator of parameter suggestions.
 
@@ -406,13 +405,13 @@ class ExtremumSeeker:
 
     def optimize(
         self,
-        func: t.Callable[[NDArray[np.floating]], t.SupportsFloat],
-        x0: NDArray[np.floating],  # pylint: disable=invalid-name
+        func: t.Callable[["NDArray[np.double]"], t.SupportsFloat],
+        x0: "NDArray[np.floating]",  # pylint: disable=invalid-name
         *,
         max_calls: t.Optional[int] = None,
         cost_goal: t.Optional[float] = None,
-        callbacks: t.Union[Callback, t.Iterable[Callback]] = (),
-        bounds: t.Optional[Bounds] = None,
+        callbacks: t.Union["Callback", t.Iterable["Callback"]] = (),
+        bounds: t.Optional["Bounds"] = None,
     ) -> OptimizeResult:
         """Run an optimization loop using ES.
 
@@ -464,10 +463,10 @@ class ExtremumSeeker:
 
 
 def _consolidate_callbacks(
-    callbacks: t.Union[Callback, t.Iterable[Callback]] = (),
+    callbacks: t.Union["Callback", t.Iterable["Callback"]] = (),
     max_calls: t.Optional[int] = None,
     cost_goal: t.Optional[float] = None,
-) -> _CallbackList:
+) -> "_CallbackList":
     if isinstance(callbacks, t.Iterable):
         callbacks = _CallbackList(callbacks)
     else:
@@ -479,7 +478,7 @@ def _consolidate_callbacks(
     return callbacks
 
 
-class _CallbackList(t.List[Callback]):
+class _CallbackList(list[Callback]):
     """List of callbacks.
 
     Calling this list always calls all elements. It ends optimization if
@@ -493,7 +492,7 @@ class _CallbackList(t.List[Callback]):
         return any([bool(cb(seeker, iteration)) for cb in self])
 
 
-def _make_cost_goal_callback(cost_goal: float) -> Callback:
+def _make_cost_goal_callback(cost_goal: float) -> "Callback":
     def _cost_goal(seeker: ExtremumSeeker, iteration: Iteration) -> bool:
         cost = iteration.cost
         return (cost < cost_goal) if seeker.gain > 0.0 else (cost > cost_goal)
@@ -501,7 +500,7 @@ def _make_cost_goal_callback(cost_goal: float) -> Callback:
     return _cost_goal
 
 
-def _make_max_calls_callback(max_calls: int) -> Callback:
+def _make_max_calls_callback(max_calls: int) -> "Callback":
     def _max_calls(_: ExtremumSeeker, iteration: Iteration) -> bool:
         return iteration.nit >= max_calls
 
@@ -512,7 +511,7 @@ def _make_result_from_iteration(iteration: Iteration) -> OptimizeResult:
     return OptimizeResult(iteration.params, iteration.cost, iteration.nit)
 
 
-def _calc_next_step(seeker: ExtremumSeeker, data: Iteration) -> NDArray[np.double]:
+def _calc_next_step(seeker: ExtremumSeeker, data: Iteration) -> "NDArray[np.double]":
     """Perform one step of the ES algorithm."""
     # Ensure that we have a flat array.
     params = np.asfarray(data.params)
@@ -537,7 +536,7 @@ def _calc_next_step(seeker: ExtremumSeeker, data: Iteration) -> NDArray[np.doubl
 
 
 def _check_bounds_shape(
-    ndim: int, lower: NDArray[np.floating], upper: NDArray[np.floating]
+    ndim: int, lower: "NDArray[np.floating]", upper: "NDArray[np.floating]"
 ) -> None:
     if np.shape(lower) != (ndim,):
         raise ValueError(
