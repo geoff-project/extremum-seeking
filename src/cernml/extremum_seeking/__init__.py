@@ -1,5 +1,5 @@
-# SPDX-FileCopyrightText: 2020-2023 CERN
-# SPDX-FileCopyrightText: 2023 GSI Helmholtzzentrum für Schwerionenforschung
+# SPDX-FileCopyrightText: 2020 - 2025 CERN
+# SPDX-FileCopyrightText: 2023 - 2025 GSI Helmholtzzentrum für Schwerionenforschung
 # SPDX-FileNotice: All rights not expressly granted are reserved.
 #
 # SPDX-License-Identifier: GPL-3.0-or-later OR EUPL-1.2+
@@ -540,13 +540,11 @@ def _check_bounds_shape(
 ) -> None:
     if np.shape(lower) != (ndim,):
         raise ValueError(
-            f"lower bound has wrong shape: expected ({ndim},), "
-            f"found {np.shape(lower)}"
+            f"lower bound has wrong shape: expected ({ndim},), found {np.shape(lower)}"
         )
     if np.shape(upper) != (ndim,):
         raise ValueError(
-            f"upper bound has wrong shape: expected ({ndim},), "
-            f"found {np.shape(upper)}"
+            f"upper bound has wrong shape: expected ({ndim},), found {np.shape(upper)}"
         )
 
 

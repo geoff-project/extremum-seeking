@@ -1,6 +1,6 @@
 ..
-    SPDX-FileCopyrightText: 2020-2023 CERN
-    SPDX-FileCopyrightText: 2023 GSI Helmholtzzentrum für Schwerionenforschung
+    SPDX-FileCopyrightText: 2020 - 2025 CERN
+    SPDX-FileCopyrightText: 2023 - 2025 GSI Helmholtzzentrum für Schwerionenforschung
     SPDX-FileNotice: All rights not expressly granted are reserved.
 
     SPDX-License-Identifier: GPL-3.0-or-later OR EUPL-1.2+
@@ -46,9 +46,9 @@ template:
         author={Nico Madysa and Verena Kain},
         title={CERNML Extremum Seeking},
         version={3.0.0},
-        date={2023-06-12},
+        date={2024-03-04},
         organization={CERN},
-        url={https://gitlab.cern.ch/geoff/optimizers/cernml-extremum-seeking/-/tags/v3.0.0},
+        url={https://gitlab.cern.ch/geoff/optimizers/cernml-extremum-seeking/-/tags/v4.0.0},
         urldate={<whenever you've last verified your online sources>},
     }
 
