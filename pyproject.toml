@@ -6,9 +6,9 @@
 
 [build-system]
 requires = [
-    'pip >= 22',
-    'setuptools >= 42',
-    'setuptools-scm[toml] >= 6.2',
+    'pip >= 23',
+    'setuptools >= 60',
+    'setuptools-scm[toml] >= 8.0',
     'wheel',
 ]
 build-backend = 'setuptools.build_meta'
@@ -26,7 +26,7 @@ maintainers = [
 description = "Scheinker's extremum seeking algorithm as an optimizer"
 readme = 'README.md'
 license = {text='Other/Proprietary License'}
-requires-python = '>=3.7'
+requires-python = '>=3.9'
 dependencies = [
     'numpy ~= 1.0',
 ]
@@ -39,9 +39,9 @@ classifiers = [
     'Topic :: Scientific/Engineering :: Physics',
     'Natural Language :: English',
     'Operating System :: OS Independent',
-    'Programming Language :: Python :: 3.7',
-    'Programming Language :: Python :: 3.8',
     'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3 :: Only',
 ]
 
@@ -76,7 +76,7 @@ package-data = {'*' = ['py.typed']}
 [tool.setuptools_scm]
 
 [tool.black]
-target-version = ['py37', 'py38', 'py39']
+target-version = ['py39']
 include = '\.pyi?$'
 
 [tool.isort]
@@ -85,6 +85,20 @@ profile = 'black'
 [tool.pytest.ini_options]
 addopts = '--doctest-modules'
 testpaths = ['src', 'tests']
+
+[tool.coverage.run]
+source = ['src']
+branch = true
+
+[tool.coverage.report]
+exclude_also = [
+    '^\s*from .* import',
+    '^\s*import ',
+    '^\s*except ImportError:$',
+    'def __del__',
+    'if .*\.TYPE_CHECKING',
+    'raise NotImplementedError',
+]
 
 [tool.mypy]
 disallow_untyped_defs = true
@@ -96,7 +110,7 @@ mypy_path = [
 ]
 
 [[tool.mypy.overrides]]
-module = ['gym.*', 'matplotlib.*']
+module = ['gym.*']
 ignore_missing_imports = true
 
 [tool.pylint.reports]
@@ -107,4 +121,5 @@ score = false
 [tool.pylint.'messages control']
 disable = [
     'duplicate-code',
+    'too-many-arguments',
 ]

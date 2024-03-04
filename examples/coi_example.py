@@ -35,7 +35,6 @@ if t.TYPE_CHECKING:
 
 
 class HideAndSeekGame(coi.SingleOptimizable):
-
     """Game of hide and seek on a 2D plane.
 
     The game has a "goal" and a "seeker". The seeker performs Brownian
@@ -94,7 +93,7 @@ class HideAndSeekGame(coi.SingleOptimizable):
         # Create two axes for board and history.
         ax_board: Axes
         ax_history: Axes
-        [ax_board, ax_history] = figure.subplots(nrows=2)
+        [ax_board, ax_history] = figure.subplots(nrows=2, squeeze=False)
         # The board has a fixed size. Put two markers on it.
         ax_board.set_xlim(
             self.optimization_space.low[0], self.optimization_space.high[0]

@@ -248,7 +248,6 @@ class Iteration:
 
 
 class ExtremumSeeker:
-
     """Extremum-seeking controller. See module docstring for more info.
 
     Args:
