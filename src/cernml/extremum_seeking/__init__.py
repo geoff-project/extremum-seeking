@@ -351,6 +351,7 @@ class ExtremumSeeker:
         """Run an optimization loop using ES.
 
         Args:
+            func: The objective function to minimize.
             x0: The initial set of parameters to suggest.
             max_calls: If passed, end the generator after this many
                 steps.
