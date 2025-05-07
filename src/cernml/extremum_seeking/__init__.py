@@ -28,6 +28,15 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
 
+__all__ = (
+    "Bounds",
+    "Callback",
+    "ExtremumSeeker",
+    "Iteration",
+    "OptimizeResult",
+    "optimize",
+)
+
 Bounds = tuple[NDArray[np.floating], NDArray[np.floating]]
 """Lower and upper bounds for the search space.
 
