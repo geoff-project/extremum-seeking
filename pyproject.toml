@@ -17,11 +17,11 @@ build-backend = 'setuptools.build_meta'
 dynamic = ['version']
 name = 'cernml-extremum-seeking'
 authors = [
-    {name = 'Nico Madysa', email = 'nico.madysa@cern.ch'},
+    {name = 'Penny Madysa', email = 'penny.madysa@cern.ch'},
     {name = 'Verena Kain', email = 'verena.kain@cern.ch'},
 ]
 maintainers = [
-    {name = 'Nico Madysa', email = 'nico.madysa@cern.ch'},
+    {name = 'Penny Madysa', email = 'penny.madysa@cern.ch'},
 ]
 description = "Scheinker's extremum seeking algorithm as an optimizer"
 readme = 'README.md'

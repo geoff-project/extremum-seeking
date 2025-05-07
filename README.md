@@ -155,7 +155,7 @@ template:
 
 ```bibtex
 @online{cernml-es,
-    author={Nico Madysa and Verena Kain},
+    author={Penny Madysa and Verena Kain},
     title={CERNML Extremum Seeking},
     version={3.0.0},
     date={2024-03-04},
