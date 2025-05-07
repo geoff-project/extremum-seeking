@@ -35,6 +35,7 @@ This repository can be found online on CERN's Gitlab_.
     :maxdepth: 2
 
     quickstart
+    usage
     examples/index
     api
     changelog

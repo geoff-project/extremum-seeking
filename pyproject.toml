@@ -85,8 +85,12 @@ include = '\.pyi?$'
 profile = 'black'
 
 [tool.pytest.ini_options]
-addopts = '--doctest-modules'
-testpaths = ['src', 'tests']
+addopts = '''
+    --doctest-modules
+    --doctest-glob="*.rst"
+    --ignore=docs/conf.py
+'''
+testpaths = ['docs', 'src', 'tests']
 
 [tool.coverage.run]
 source = ['src']
