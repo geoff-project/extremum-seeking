@@ -66,7 +66,7 @@ Running an optimization loop until the cost is sufficiently small:
 
     >>> res = seeker.optimize(cost_function, x0, cost_goal=0.01)
     >>> round(cost_function(res.params), 6)
-    0.010504
+    np.float64(0.010504)
 
 Passing a callback function to the optimization loop:
 

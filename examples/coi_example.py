@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import typing as t
 
-import gym
+import gymnasium as gym
 import numpy as np
 from matplotlib import pyplot as plt
 from typing_extensions import override
@@ -59,22 +59,33 @@ class HideAndSeekGame(coi.SingleOptimizable):
         "cern.japc": False,
     }
 
-    param_names = ["X", "Y"]
+    param_names = ("X", "Y")
     optimization_space = gym.spaces.Box(-5.0, 5.0, shape=(2,))
     objective_range = (0.0, float(np.linalg.norm([10.0, 10.0])))
     objective_name = "Distance"
 
-    def __init__(self) -> None:
+    def __init__(self, render_mode: str | None = None) -> None:
+        super().__init__(render_mode=render_mode)
         self.seeker = np.zeros(self.optimization_space.shape)
         self.goal = np.zeros(self.optimization_space.shape)
         self.history_indices: list[int] = []
         self.history_costs: list[float] = []
-        self.renderer = mpl_utils.FigureRenderer.from_callback(self._iter_updates)
+        self.renderer = mpl_utils.FigureRenderer.from_callback(
+            self._iter_updates, render_mode=render_mode
+        )
 
     @override
-    def get_initial_params(self) -> np.ndarray:
-        self.seeker = self.optimization_space.sample()
-        self.goal = self.optimization_space.sample()
+    def get_initial_params(
+        self, *, seed: int | None = None, options: coi.InfoDict | None = None
+    ) -> np.ndarray:
+        super().get_initial_params(seed=seed, options=options)
+        # `optimization_space` has a method `sample()` that we could
+        # use, but this would ignore the *seed* argument.
+        self.seeker, self.goal = self.np_random.uniform(
+            self.optimization_space.low,
+            self.optimization_space.high,
+            size=(2, *self.optimization_space.shape),
+        )
         return np.copy(self.seeker)
 
     @override
@@ -83,7 +94,7 @@ class HideAndSeekGame(coi.SingleOptimizable):
             self.goal = self.optimization_space.sample()
         self.seeker = np.copy(params)
         self.goal = np.clip(
-            self.goal + np.random.normal(scale=0.05, size=self.goal.shape),
+            self.goal + self.np_random.normal(scale=0.05, size=self.goal.shape),
             self.optimization_space.low,
             self.optimization_space.high,
         )
@@ -131,10 +142,10 @@ class HideAndSeekGame(coi.SingleOptimizable):
             ax_history.autoscale_view(scaley=False)
 
     @override
-    def render(self, mode: str = "human") -> mpl_utils.MatplotlibFigures | None:
-        if mode in ["human", "matplotlib_figures"]:
-            return self.renderer.update(mode)
-        return super().render(mode)
+    def render(self) -> mpl_utils.MatplotlibFigures | None:
+        if self.render_mode in ["human", "matplotlib_figures"]:
+            return self.renderer.update()
+        return super().render()
 
 
 def main() -> None:

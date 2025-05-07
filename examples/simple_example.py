@@ -48,12 +48,13 @@ def main() -> None:
     # ExtremumSeeker into a generator because we want to control the
     # game loop, but we also don't want to call `calc_next_step()`
     # manually.
+    rng = np.random.default_rng()
     lower, upper = np.array([[-5.0, -5.0], [5.0, 5.0]])
     generator = ExtremumSeeker(oscillation_size=0.5, gain=5.0).make_generator(
-        np.random.normal(scale=3.0, size=2), bounds=(lower, upper)
+        rng.normal(scale=3.0, size=2), bounds=(lower, upper)
     )
     seeker = next(generator).params
-    goal = np.random.normal(scale=3.0, size=2)
+    goal = rng.normal(scale=3.0, size=2)
 
     # Set up the game board plot.
     plt.subplot(211)
@@ -85,11 +86,9 @@ def main() -> None:
         # Periodically rerandomize the goal, otherwise do Brownian
         # motion within bounds.
         if not (len(history_indices) + 1) % 100:
-            goal = np.random.uniform(lower, upper)
+            goal = rng.uniform(lower, upper)
         else:
-            goal = np.clip(
-                goal + np.random.normal(scale=0.05, size=goal.shape), lower, upper
-            )
+            goal = np.clip(goal + rng.normal(scale=0.05, size=goal.shape), lower, upper)
         # Update the seeker position.
         cost = float(np.linalg.norm(seeker - goal))
         seeker = generator.send(cost).params

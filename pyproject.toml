@@ -28,7 +28,7 @@ readme = 'README.md'
 license = {file='COPYING'}
 requires-python = '>=3.9'
 dependencies = [
-    'numpy ~= 1.23',
+    'numpy >= 1.23',
 ]
 classifiers = [
     'Development Status :: 5 - Production/Stable',
@@ -49,8 +49,8 @@ classifiers = [
 # If you update these dependencies, also update
 # .pre-commit-config.yaml/mypy/additional_dependencies.
 examples = [
-    'cernml-coi ~= 0.8.0',
-    'cernml-coi-utils[matplotlib] ~= 0.2.0',
+    'cernml-coi ~= 0.9.0',
+    'cernml-coi-utils[matplotlib] ~= 0.3.0',
     'typing-extensions',
 ]
 doc = [
@@ -141,10 +141,6 @@ mypy_path = [
     '$MYPY_CONFIG_FILE_DIR/examples',
     '$MYPY_CONFIG_FILE_DIR/tests',
 ]
-
-[[tool.mypy.overrides]]
-module = ['gym.*']
-ignore_missing_imports = true
 
 [tool.pylint.reports]
 output-format = 'parseable'
