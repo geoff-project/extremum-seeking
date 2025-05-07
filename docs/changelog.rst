@@ -13,7 +13,11 @@ Changelog
 Unreleased
 ----------
 
-No changes yet!
+- ADD: Compatibility with NumPy 2.0.
+- FIX: Missing argument in docs for `.ExtremumSeeker.optimize()`.
+- OTHER: Update :doc:`COI example </examples/coi_example>` to :doc:`cernml-coi
+  <coi:index>` 0.9.
+- OTHER: Move :doc:`/usage` into a dedicated section.
 
 v4.0.0
 ------
