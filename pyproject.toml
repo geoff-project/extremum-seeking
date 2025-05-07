@@ -51,6 +51,7 @@ classifiers = [
 examples = [
     'cernml-coi ~= 0.8.0',
     'cernml-coi-utils[matplotlib] ~= 0.2.0',
+    'typing-extensions',
 ]
 doc = [
     'Sphinx >= 7.1',
@@ -100,6 +101,37 @@ exclude_also = [
     'if .*\.TYPE_CHECKING',
     'raise NotImplementedError',
 ]
+
+[tool.ruff]
+fix = true
+src = ['examples', 'src', 'test']
+target-version = 'py39'
+
+[tool.ruff.lint]
+extend-select = [
+    'A', 'ARG', 'ASYNC', 'B', 'C4', 'C90', 'COM818', 'D', 'DTZ', 'EXE', 'FLY',
+    'I', 'ICN', 'ISC', 'NPY', 'PD', 'PERF', 'PGH', 'PIE', 'PLR5501', 'PT',
+    'PTH', 'PYI', 'RET', 'RSE', 'RUF', 'SIM', 'SLOT', 'T10', 'TRY', 'UP',
+]
+ignore = [
+    'D105',   # Missing docstring in magic method
+    'D107',   # Missing docstring in __init__
+    'D417',   # Missing argument description in the docstring
+    'ISC001', # Implicit string concatenation, conflicts with autoformat
+    'RUF012', # Mutable class attributes should use `typing.ClassVar`
+              # TODO Waiting for Gymnasium#951 to get fixed.
+    'TRY003', # Avoid specifying long messages outside the exception class
+]
+# Allow non-breaking space and en-dash in docstrings.
+allowed-confusables = [' ', '–', '×']
+flake8-pytest-style.fixture-parentheses = false
+isort.split-on-trailing-comma = true
+pycodestyle.max-doc-length = 72
+pydocstyle.convention = 'google'
+pydocstyle.ignore-decorators = ['overload', 'overrides']
+
+[tool.ruff.lint.per-file-ignores]
+'**/{tests,docs}/*' = ['A001', 'ARG', 'D', 'INP']
 
 [tool.mypy]
 disallow_untyped_defs = true

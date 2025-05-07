@@ -17,10 +17,12 @@ repos:
     args: ["--unsafe"]
   - id: end-of-file-fixer
   - id: trailing-whitespace
-- repo: https://github.com/psf/black
-  rev: 25.1.0
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  rev: v0.11.8
   hooks:
-  - id: black
+    - id: ruff
+      args: ["--fix", "--exit-non-zero-on-fix"]
+    - id: ruff-format
 - repo: https://github.com/fsfe/reuse-tool
   rev: v5.0.2
   hooks:
@@ -29,12 +31,6 @@ repos:
   rev: 6.0.1
   hooks:
   - id: isort
-- repo: https://github.com/pycqa/flake8
-  rev: 7.2.0
-  hooks:
-  - id: flake8
-    additional_dependencies:
-    - flake8-length
 - repo: local
   hooks:
   - id: pylint

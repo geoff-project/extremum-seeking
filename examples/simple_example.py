@@ -23,7 +23,7 @@ from __future__ import annotations
 import typing as t
 
 import numpy as np
-from matplotlib import pyplot
+from matplotlib import pyplot as plt
 
 from cernml.extremum_seeking import ExtremumSeeker
 
@@ -42,7 +42,7 @@ def main() -> None:
         nonlocal done
         done = True
 
-    pyplot.gcf().canvas.mpl_connect("close_event", on_close)
+    plt.gcf().canvas.mpl_connect("close_event", on_close)
 
     # Set up bounds, optimizer and the two players. We turn the
     # ExtremumSeeker into a generator because we want to control the
@@ -56,32 +56,32 @@ def main() -> None:
     goal = np.random.normal(scale=3.0, size=2)
 
     # Set up the game board plot.
-    pyplot.subplot(211)
-    pyplot.xlim(lower[0], upper[0])
-    pyplot.ylim(lower[1], upper[1])
+    plt.subplot(211)
+    plt.xlim(lower[0], upper[0])
+    plt.ylim(lower[1], upper[1])
     line_seeker: Line2D
     line_goal: Line2D
-    [line_seeker, line_goal] = pyplot.plot(*seeker, "o", *goal, "o")
-    pyplot.legend(["Seeker", "Goal"])
-    pyplot.grid()
-    pyplot.title("Board")
+    [line_seeker, line_goal] = plt.plot(*seeker, "o", *goal, "o")
+    plt.legend(["Seeker", "Goal"])
+    plt.grid()
+    plt.title("Board")
 
     # Set up the history plot.
-    ax_history: Axes = pyplot.subplot(212)
-    history_indices: t.List[int] = []
-    history_costs: t.List[float] = []
+    ax_history: Axes = plt.subplot(212)
+    history_indices: list[int] = []
+    history_costs: list[float] = []
     line_history: Line2D
-    [line_history] = pyplot.plot(history_indices, history_costs)
-    pyplot.xlabel("Step")
-    pyplot.ylabel("Distance")
-    pyplot.title("Progress")
-    pyplot.ylim(0.0, np.linalg.norm([10.0, 10.0]))
-    pyplot.tight_layout()
+    [line_history] = plt.plot(history_indices, history_costs)
+    plt.xlabel("Step")
+    plt.ylabel("Distance")
+    plt.title("Progress")
+    plt.ylim(0.0, np.linalg.norm([10.0, 10.0]))
+    plt.tight_layout()
 
     # Main loop!
     while not done:
         # Give the GUI some time to process events.
-        pyplot.pause(0.1)
+        plt.pause(0.1)
         # Periodically rerandomize the goal, otherwise do Brownian
         # motion within bounds.
         if not (len(history_indices) + 1) % 100:

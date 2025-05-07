@@ -59,13 +59,13 @@ def test_custom_amplitude() -> None:
 
 @pytest.mark.parametrize("gain", [0.0, np.inf, np.nan])
 def test_raises_on_bad_gain(gain: float) -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="gain must not be zero:"):
         es.ExtremumSeeker(gain=gain)
 
 
 @pytest.mark.parametrize("decay_rate", [-1.0, 0.0, 2.0, np.inf, np.nan])
 def test_raises_on_bad_decay_rate(decay_rate: float) -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="decay_rate must be between 0 and 1:"):
         es.ExtremumSeeker(decay_rate=decay_rate)
 
 
@@ -82,7 +82,7 @@ def test_bounds() -> None:
 
 
 @pytest.mark.parametrize(
-    "bad_bound_name, lower_shape, upper_shape",
+    ("bad_bound_name", "lower_shape", "upper_shape"),
     [("lower", 10, 2), ("upper", 2, 10)],
 )
 def test_bad_bounds(bad_bound_name: str, lower_shape: int, upper_shape: int) -> None:

@@ -171,7 +171,6 @@ def optimize(
         parameters. Otherwise, this method never returns.
 
     Example:
-
         >>> def cost_function(x):
         ...     return np.mean(x*x)
         >>> res = optimize(cost_function, x0=np.zeros(2), max_calls=10)
@@ -270,7 +269,6 @@ class ExtremumSeeker:
         decay_rate: The amplitude decay rate.
 
     Example:
-
         >>> def func(x):
         ...     return np.mean(x*x)
         >>> seeker = ExtremumSeeker(gain=2)
@@ -344,13 +342,16 @@ class ExtremumSeeker:
             *params*.
 
         Example:
-
             >>> seeker = ExtremumSeeker()
             >>> seeker.calc_next_step(np.zeros(2), cost=0.0, step=0)
             array([0.03590392, 0.06283185])
         """
         iteration = Iteration(
-            np.asfarray(params), cost=cost, nit=step, amplitude=amplitude, bounds=bounds
+            np.asarray(params, dtype=np.double),
+            cost=cost,
+            nit=step,
+            amplitude=amplitude,
+            bounds=bounds,
         )
         return _calc_next_step(self, iteration)
 
@@ -375,7 +376,6 @@ class ExtremumSeeker:
             set of parameters as value.
 
         Example:
-
             >>> def cost_function(x):
             ...     return np.mean(x*x)
             >>> seeker = ExtremumSeeker()
@@ -388,7 +388,7 @@ class ExtremumSeeker:
             >>> it.params
             array([-0.07720379,  0.00018237])
         """
-        iteration = Iteration(np.asfarray(x0), bounds=bounds)
+        iteration = Iteration(np.asarray(x0, dtype=np.double), bounds=bounds)
         while True:
             iteration.nit += 1
             # Avoid issue pylint#9480
@@ -436,7 +436,6 @@ class ExtremumSeeker:
             of parameters. Otherwise, this method never returns.
 
         Example:
-
             >>> def cost_function(x):
             ...     return np.mean(x*x)
             >>> seeker = ExtremumSeeker()
@@ -451,7 +450,7 @@ class ExtremumSeeker:
         # Special case max_calls==0: Avoid calling any part of the
         # optimization loop, just return immediately.
         if max_calls is not None and max_calls <= 0:
-            return OptimizeResult(np.asfarray(x0))
+            return OptimizeResult(np.asarray(x0, dtype=np.double))
         callbacks = _consolidate_callbacks(callbacks, max_calls, cost_goal)
         generator = self.make_generator(x0, bounds=bounds)
         iteration = next(generator)
@@ -489,7 +488,7 @@ class _CallbackList(list[Callback]):
         # Collect bools into a list first to ensure that each callback
         # is called. `any()` stops on the first True it finds.
         # pylint: disable = use-a-generator
-        return any([bool(cb(seeker, iteration)) for cb in self])
+        return any([bool(cb(seeker, iteration)) for cb in self])  # noqa: C419
 
 
 def _make_cost_goal_callback(cost_goal: float) -> "Callback":
@@ -514,7 +513,7 @@ def _make_result_from_iteration(iteration: Iteration) -> OptimizeResult:
 def _calc_next_step(seeker: ExtremumSeeker, data: Iteration) -> "NDArray[np.double]":
     """Perform one step of the ES algorithm."""
     # Ensure that we have a flat array.
-    params = np.asfarray(data.params)
+    params = np.asarray(data.params, dtype=np.double)
     [ndim] = params.shape
     time_step = seeker.get_time_step()
     # Choose frequency different for each dimension without

@@ -23,7 +23,8 @@ import typing as t
 
 import gym
 import numpy as np
-from matplotlib import pyplot
+from matplotlib import pyplot as plt
+from typing_extensions import override
 
 from cernml import coi, mpl_utils
 from cernml.extremum_seeking import ExtremumSeeker
@@ -66,15 +67,17 @@ class HideAndSeekGame(coi.SingleOptimizable):
     def __init__(self) -> None:
         self.seeker = np.zeros(self.optimization_space.shape)
         self.goal = np.zeros(self.optimization_space.shape)
-        self.history_indices: t.List[int] = []
-        self.history_costs: t.List[float] = []
+        self.history_indices: list[int] = []
+        self.history_costs: list[float] = []
         self.renderer = mpl_utils.FigureRenderer.from_callback(self._iter_updates)
 
+    @override
     def get_initial_params(self) -> np.ndarray:
         self.seeker = self.optimization_space.sample()
         self.goal = self.optimization_space.sample()
         return np.copy(self.seeker)
 
+    @override
     def compute_single_objective(self, params: np.ndarray) -> float:
         if not (len(self.history_costs) + 1) % 100:
             self.goal = self.optimization_space.sample()
@@ -127,7 +130,8 @@ class HideAndSeekGame(coi.SingleOptimizable):
             # Apply the new bounding box.
             ax_history.autoscale_view(scaley=False)
 
-    def render(self, mode: str = "human") -> t.Optional[mpl_utils.MatplotlibFigures]:
+    @override
+    def render(self, mode: str = "human") -> mpl_utils.MatplotlibFigures | None:
         if mode in ["human", "matplotlib_figures"]:
             return self.renderer.update(mode)
         return super().render(mode)
@@ -163,7 +167,7 @@ def main() -> None:
     params = next(generator).params
     while not done:
         # Give the GUI some time to draw.
-        pyplot.pause(0.1)
+        plt.pause(0.1)
         # The main loop.
         cost = game.compute_single_objective(params)
         params = generator.send(cost).params

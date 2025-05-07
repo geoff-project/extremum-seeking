@@ -151,7 +151,7 @@ def retry_resolve_xref(
     env: BuildEnvironment,
     node: addnodes.pending_xref,
     contnode: nodes.TextElement,
-) -> t.Optional[nodes.Element]:
+) -> nodes.Element | None:
     """Run the resolve procedure again.
 
     This should be called after `node` has been modified in some way. It
@@ -174,7 +174,7 @@ def fix_broken_crossrefs(
     env: BuildEnvironment,
     node: addnodes.pending_xref,
     contnode: nodes.TextElement,
-) -> t.Optional[nodes.Element]:
+) -> nodes.Element | None:
     """Handler for all missing references.
 
     Autodoc does not handle type aliases correctly – they have the role
