@@ -9,5 +9,5 @@ Combination of Extremum Seeking and Common Optimization Interfaces
 ==================================================================
 
 .. literalinclude:: /../examples/coi_example.py
-   :linenos:
-   :lines: 9-
+    :linenos:
+    :lines: 9-

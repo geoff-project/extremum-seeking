@@ -32,9 +32,9 @@ This repository can be found online on CERN's Gitlab_.
 
 
 .. toctree::
-   :maxdepth: 2
+    :maxdepth: 2
 
-   quickstart
-   examples/index
-   api
-   changelog
+    quickstart
+    examples/index
+    api
+    changelog

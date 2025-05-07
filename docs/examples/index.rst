@@ -14,7 +14,7 @@ You can find all of them in the :file:`examples` directory of the project
 repository_. You can execute them the usual way with :samp:`python {name}.py`.
 
 .. _repository:
-   https://gitlab.cern.ch/geoff/optimizers/cernml-extremum-seeking
+    https://gitlab.cern.ch/geoff/optimizers/cernml-extremum-seeking
 
 .. toctree::
 

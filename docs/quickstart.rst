@@ -15,7 +15,7 @@ To install this package from the `Acc-Py Repository`_, simply run the
 following line while on the CERN network:
 
 .. _Acc-Py Repository:
-   https://wikis.cern.ch/display/ACCPY/Getting+started+with+Acc-Py
+    https://wikis.cern.ch/display/ACCPY/Getting+started+with+Acc-Py
 
 .. code-block:: shell-session
 

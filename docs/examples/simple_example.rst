@@ -9,5 +9,5 @@ Play a game of hide and seek using Extremum Seeking
 ===================================================
 
 .. literalinclude:: /../examples/simple_example.py
-   :linenos:
-   :lines: 9-
+    :linenos:
+    :lines: 9-

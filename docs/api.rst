@@ -9,4 +9,4 @@ API Reference
 =============
 
 .. automodule:: cernml.extremum_seeking
-   :members:
+    :members:
