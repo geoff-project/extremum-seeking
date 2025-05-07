@@ -189,12 +189,6 @@ def fix_broken_crossrefs(
         node["reftarget"] = "numpy." + name
         contnode = t.cast(nodes.TextElement, nodes.Text(name))
         return retry_resolve_xref(app, env, node, contnode)
-    if node["reftarget"].startswith("t."):
-        _, name = node["reftarget"].split(".")
-        node["reftarget"] = "typing." + name
-        node["reftype"] = "obj"
-        contnode = t.cast(nodes.TextElement, nodes.Text(name))
-        return retry_resolve_xref(app, env, node, contnode)
     if node["reftarget"] in autodoc_type_aliases:
         node["reftarget"] = autodoc_type_aliases[node["reftarget"]]
         node["reftype"] = "obj"
