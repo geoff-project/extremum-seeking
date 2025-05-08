@@ -39,6 +39,15 @@ def test_callback_params_and_cost_in_sync() -> None:
     assert quadratic_cost_function(res.params) == res.cost
 
 
+def test_generator_cost_always_nan() -> None:
+    gen = es.ExtremumSeeker().make_generator(np.zeros(2))
+    iteration = next(gen)
+    for _ in range(3):
+        assert np.isnan(iteration.cost)
+        assert not np.any(np.isnan(iteration.params))
+        iteration = gen.send(0.0)
+
+
 def test_decay_rate_reduces_amplitude() -> None:
     gen = es.ExtremumSeeker(decay_rate=0.5).make_generator(np.zeros(2))
     iteration = next(gen)
