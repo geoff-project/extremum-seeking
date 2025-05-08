@@ -18,22 +18,25 @@ import pytest
 from cernml import extremum_seeking as es
 
 
+def quadratic_cost_function(params: np.ndarray) -> float:
+    return np.mean(np.square(params))
+
+
 @pytest.mark.parametrize("max_calls", [0, 1, 10])
 def test_max_calls_reached(max_calls: int) -> None:
-    cost_function = Mock(return_value=0.0)
+    cost_function = Mock(name="cost function", return_value=0.0)
     es.optimize(cost_function, np.zeros(2), max_calls=max_calls)
     assert cost_function.call_count == max_calls
 
 
-def test_params_and_cost_in_sync() -> None:
-    def cost_function(params: np.ndarray) -> float:
-        return np.mean(np.square(params))
-
+def test_callback_params_and_cost_in_sync() -> None:
     def callback(_seeker: es.ExtremumSeeker, iteration: es.Iteration) -> None:
-        assert cost_function(iteration.params) == iteration.cost
+        assert quadratic_cost_function(iteration.params) == iteration.cost
 
-    res = es.optimize(cost_function, np.zeros(2), max_calls=20, callbacks=callback)
-    assert cost_function(res.params) == res.cost
+    res = es.optimize(
+        quadratic_cost_function, np.zeros(2), max_calls=20, callbacks=callback
+    )
+    assert quadratic_cost_function(res.params) == res.cost
 
 
 def test_decay_rate_reduces_amplitude() -> None:
@@ -52,7 +55,10 @@ def test_custom_amplitude_passed_through() -> None:
         iteration.amplitude *= 0.5
 
     res = es.optimize(
-        Mock(return_value=0.0), np.zeros(2), max_calls=10, callbacks=callback
+        Mock(name="cost function", return_value=0.0),
+        np.zeros(2),
+        max_calls=10,
+        callbacks=callback,
     )
     assert np.allclose(res.params, np.array([0.02500405, 0.02193172]))
 
@@ -72,7 +78,7 @@ def test_raises_on_bad_decay_rate(decay_rate: float) -> None:
 def test_bounds_clip() -> None:
     bounds = 0.1 * np.ones(2)
     res = es.optimize(
-        lambda x: np.mean(x * x),
+        quadratic_cost_function,
         x0=np.zeros(2),
         max_calls=2,
         oscillation_size=1.0,
@@ -88,7 +94,9 @@ def test_bounds_clip() -> None:
 def test_bad_bounds(bad_bound_name: str, lower_shape: int, upper_shape: int) -> None:
     bounds = (-np.ones(lower_shape), np.ones(upper_shape))
     with pytest.raises(ValueError, match=bad_bound_name):
-        es.optimize(Mock(return_value=0.0), x0=np.zeros(2), bounds=bounds)
+        es.optimize(
+            Mock(name="cost function", return_value=0.0), x0=np.zeros(2), bounds=bounds
+        )
 
 
 def test_cost_is_none() -> None:
@@ -99,14 +107,13 @@ def test_cost_is_none() -> None:
 
 
 def test_cost_is_nan() -> None:
-    cost_function = Mock(return_value=np.nan)
     with pytest.raises(ValueError, match="NaN"):
-        es.optimize(cost_function, np.zeros(2))
+        es.optimize(Mock(name="cost function", return_value=np.nan), np.zeros(2))
 
 
 def test_cost_goal_stops_optimization() -> None:
     cost_goal = 0.001
-    cost_function = Mock(side_effect=lambda x: np.mean(np.square(x)))
+    cost_function = Mock(side_effect=quadratic_cost_function)
     res = es.optimize(cost_function, x0=0.2 * np.ones(2), cost_goal=cost_goal)
     assert cost_function(res.params) == res.cost
     assert res.cost < cost_goal
@@ -115,15 +122,15 @@ def test_cost_goal_stops_optimization() -> None:
 
 @pytest.mark.parametrize("max_calls", [0, 1, 10])
 def test_callback_stops_optimization(max_calls: int) -> None:
-    cost_function = Mock(return_value=0.0)
-    callback = Mock(return_value=False)
+    cost_function = Mock(name="cost function", return_value=0.0)
+    callback = Mock(name="callback", return_value=False)
     es.optimize(cost_function, np.zeros(2), max_calls=max_calls, callbacks=callback)
     assert callback.call_count == max_calls
 
 
 def test_always_call_all_callbacks() -> None:
     expected_calls = 8
-    cost_function = Mock(return_value=0.0)
+    cost_function = Mock(name="cost function", return_value=0.0)
     callbacks = [
         Mock(
             name=f"Callback #{i_callback}",
