@@ -15,8 +15,8 @@ Unreleased
 
 - ADD: Compatibility with NumPy 2.0.
 - FIX: Missing argument in docs for `.ExtremumSeeker.optimize()`.
-- OTHER: Update :doc:`COI example </examples/coi_example>` to :doc:`cernml-coi
-  <coi:index>` 0.9.
+- FIX: The :term:`generator` returned by `.ExtremumSeeker.make_generator()` now returns a new `.Iteration` object from each step.
+- OTHER: Update :doc:`COI example </examples/coi_example>` to :doc:`cernml-coi <coi:index>` 0.9.
 - OTHER: Move :doc:`/usage` into a dedicated section.
 
 v4.0.0

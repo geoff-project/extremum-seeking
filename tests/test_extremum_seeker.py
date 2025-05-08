@@ -135,3 +135,27 @@ def test_always_call_all_callbacks() -> None:
     assert cost_function.call_count == expected_calls
     for callback in callbacks:
         assert callback.call_count == expected_calls
+
+
+def test_each_iteration_object_unique() -> None:
+    iterations = []
+    es.optimize(
+        Mock(name="cost function", return_value=0.0),
+        x0=np.zeros(2),
+        callbacks=lambda _seeker, it: iterations.append(it),
+        max_calls=2,
+    )
+    assert iterations[0] is not iterations[1]
+
+
+def test_iteration_nit_value() -> None:
+    iterations = []
+    es.optimize(
+        Mock(name="cost function", return_value=0.0),
+        x0=np.zeros(2),
+        callbacks=lambda _seeker, it: iterations.append(it),
+        max_calls=3,
+    )
+    assert iterations[0].nit == 1
+    assert iterations[1].nit == 2
+    assert iterations[2].nit == 3

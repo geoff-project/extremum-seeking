@@ -23,7 +23,7 @@ caller's hand.
 """
 
 import typing as t
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 from numpy.typing import NDArray
@@ -147,8 +147,7 @@ class OptimizeResult:
     nit: int = 0
 
     def __str__(self) -> str:
-        # Wrap cost and nit in NumPy scalars so that they obey
-        # `np.printoptions`:
+        # Wrap cost and nit so that they obey `np.printoptions`:
         fields = vars(self)
         width = max(map(len, fields))
         return "\n".join(
@@ -176,10 +175,10 @@ class Iteration:
     """
 
     params: "NDArray[np.double]"
-    cost: float = np.nan
-    nit: int = 0
-    amplitude: float = 1.0
-    bounds: t.Optional["Bounds"] = None
+    cost: float
+    nit: int
+    amplitude: float
+    bounds: t.Optional["Bounds"]
 
 
 class ExtremumSeeker:
@@ -313,6 +312,7 @@ class ExtremumSeeker:
         Example:
             >>> def cost_function(x):
             ...     return np.mean(x*x)
+            ...
             >>> seeker = ExtremumSeeker()
             >>> gen = seeker.make_generator(np.zeros(2))
             >>> it = next(gen)
@@ -323,10 +323,14 @@ class ExtremumSeeker:
             >>> it.params
             array([-0.07720379,  0.00018237])
         """
-        iteration = Iteration(np.asarray(x0, dtype=np.double), bounds=bounds)
+        iteration = Iteration(
+            np.asarray(x0, dtype=np.double),
+            bounds=bounds,
+            cost=float("nan"),
+            amplitude=1.0,
+            nit=1,
+        )
         while True:
-            iteration.nit += 1
-            # Avoid issue pylint#9480
             cost = yield iteration
             if cost is None:
                 raise TypeError("no cost passed; make sure to call `self.send(cost)`")
@@ -335,8 +339,17 @@ class ExtremumSeeker:
                 raise ValueError(
                     f"cost is NaN (not a number) after {iteration.nit} ES step(s)"
                 )
-            iteration.params = _calc_next_step(self, iteration)
-            iteration.amplitude *= self.decay_rate
+            # This line still uses the old `iteration` object.
+            next_params = _calc_next_step(self, iteration)
+            # Make sure to create a new `iteration` in case the user
+            # stored the old one.
+            iteration = replace(
+                iteration,
+                cost=float("nan"),
+                params=next_params,
+                amplitude=iteration.amplitude * self.decay_rate,
+                nit=iteration.nit + 1,
+            )
 
     def optimize(
         self,
