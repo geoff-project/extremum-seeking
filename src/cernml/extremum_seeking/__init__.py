@@ -38,23 +38,8 @@ __all__ = (
 )
 
 Bounds = tuple[NDArray[np.floating], NDArray[np.floating]]
-"""Lower and upper bounds for the search space.
-
-Bounds are specified as a tuple :samp:`({lower}, {upper})` with the same
-shape as the parameters.
-"""
 
 Callback = t.Callable[["ExtremumSeeker", "Iteration"], t.Optional[bool]]
-"""Signature of callbacks for `optimize`.
-
-Each callback is called at the end of each iteration with 2 arguments:
-the `ExtremumSeeker` instance and the current `Iteration`.
-
-If any callback returns any truth-like value, optimization terminates.
-If the return value is false-like (including `None`), optimization
-continues. This is so that a callback without return value never
-terminates the optimization.
-"""
 
 
 def optimize(
@@ -132,7 +117,7 @@ def optimize(
 
 @dataclass
 class OptimizeResult:
-    """The return value of `optimize()`.
+    """The :doc:`dataclass <std:library/dataclasses>` returned by `optimize()`.
 
     Args:
         params: The final set of parameters.
