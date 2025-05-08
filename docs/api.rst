@@ -36,23 +36,34 @@ Helper Types
 .. type:: Bounds
     :canonical: tuple[NDArray[np.floating], NDArray[np.floating]]
 
-    Lower and upper bounds for the search space.
+    Type alias that describes the search space.
 
-    Bounds are specified as a tuple :samp:`({lower}, {upper})` with the same
-    shape as the parameters.
+    Bounds are specified as a tuple :samp:`({lower}, {upper})` of arrays with
+    the same shape as the parameters. This alias is used by `optimize()` and
+    `ExtremumSeeker.make_generator()`.
 
 .. type:: Callback
     :canonical: Callable[[ExtremumSeeker, Iteration], Optional[bool]]
 
-    Signature of callbacks for `optimize`.
+    Type alias that describes the signature of optimization callbacks.
 
-    Each callback is called at the end of each iteration with 2 arguments:
-    the `ExtremumSeeker` instance and the current `Iteration`.
+    Each callback is called *at the end* of each iteration with 2 arguments:
+    the `ExtremumSeeker` instance and the current `Iteration` object.
 
-    If any callback returns any truth-like value, optimization terminates.
-    If the return value is false-like (including `None`), optimization
-    continues. This is so that a callback without return value never
-    terminates the optimization.
+    If *any* callback returns a :ref:`true-like <std:truth>` value,
+    optimization terminates. If the return value is false-like (including
+    `None`), optimization continues. This way, callbacks without a return
+    statement continue the optimization by default.
+
+    This alias is used by `optimize()` and `ExtremumSeeker.optimize()`.
+
+    .. note::
+        The `Iteration` object passed to callbacks is mutable. If one callback
+        modifies it, all subsequent callbacks *in the same iteration* can
+        observe this modification.
+
+        However, each iteration is run with a distinct `Iteration` object. So
+        modifications will not transfer to subsequent iterations.
 
 .. autoclass:: OptimizeResult()
 
