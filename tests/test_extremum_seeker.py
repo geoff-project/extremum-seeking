@@ -19,7 +19,7 @@ from cernml import extremum_seeking as es
 
 
 @pytest.mark.parametrize("max_calls", [0, 1, 10])
-def test_max_calls(max_calls: int) -> None:
+def test_max_calls_reached(max_calls: int) -> None:
     cost_function = Mock(return_value=0.0)
     es.optimize(cost_function, np.zeros(2), max_calls=max_calls)
     assert cost_function.call_count == max_calls
@@ -36,7 +36,7 @@ def test_params_and_cost_in_sync() -> None:
     assert cost_function(res.params) == res.cost
 
 
-def test_decay_rate() -> None:
+def test_decay_rate_reduces_amplitude() -> None:
     gen = es.ExtremumSeeker(decay_rate=0.5).make_generator(np.zeros(2))
     iteration = next(gen)
     for expected in [1.0, 0.5, 0.25, 0.125]:
@@ -44,7 +44,7 @@ def test_decay_rate() -> None:
         iteration = gen.send(0.0)
 
 
-def test_custom_amplitude() -> None:
+def test_custom_amplitude_passed_through() -> None:
     expected = (2**-i for i in range(10))
 
     def callback(_seeker: es.ExtremumSeeker, iteration: es.Iteration) -> None:
@@ -69,7 +69,7 @@ def test_raises_on_bad_decay_rate(decay_rate: float) -> None:
         es.ExtremumSeeker(decay_rate=decay_rate)
 
 
-def test_bounds() -> None:
+def test_bounds_clip() -> None:
     bounds = 0.1 * np.ones(2)
     res = es.optimize(
         lambda x: np.mean(x * x),
@@ -104,7 +104,7 @@ def test_cost_is_nan() -> None:
         es.optimize(cost_function, np.zeros(2))
 
 
-def test_cost_goal() -> None:
+def test_cost_goal_stops_optimization() -> None:
     cost_goal = 0.001
     cost_function = Mock(side_effect=lambda x: np.mean(np.square(x)))
     res = es.optimize(cost_function, x0=0.2 * np.ones(2), cost_goal=cost_goal)
@@ -114,7 +114,7 @@ def test_cost_goal() -> None:
 
 
 @pytest.mark.parametrize("max_calls", [0, 1, 10])
-def test_callback(max_calls: int) -> None:
+def test_callback_stops_optimization(max_calls: int) -> None:
     cost_function = Mock(return_value=0.0)
     callback = Mock(return_value=False)
     es.optimize(cost_function, np.zeros(2), max_calls=max_calls, callbacks=callback)
