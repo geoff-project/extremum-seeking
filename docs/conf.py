@@ -98,7 +98,7 @@ toc_object_entries_show_parents = "hide"
 # Avoid role annotations as much as possible.
 default_role = "py:obj"
 
-maximum_signature_line_length = 88
+maximum_signature_line_length = 120
 
 # -- Options for HTML output -------------------------------------------
 

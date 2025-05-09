@@ -14,9 +14,10 @@ Unreleased
 ----------
 
 - ADD: Compatibility with NumPy 2.0.
-- FIX: Missing argument in docs for `.ExtremumSeeker.optimize()`.
-- FIX: The :term:`generator` returned by `.ExtremumSeeker.make_generator()` now returns a new `.Iteration` object from each step.
-- FIX: The *cost* attribute of `.Iteration` objects yielded by `.ExtremumSeeker.make_generator()` is always `~numpy.nan`.
+- FIX: Missing argument in docs for `ExtremumSeeker.optimize()`.
+- FIX: To avoid confusion, `.make_generator()` and `.calc_next_step()` now return `Step` objects *without* a *cost* attribute. Callbacks continue to receive the full `.Iteration` objects.
+- FIX: The :term:`generator` returned by `.make_generator()` now returns a distinct `Step` object from each step.
+- FIX: The *cost* attribute of `Iteration` objects yielded by `.make_generator()` is always `~numpy.nan`.
 - OTHER: Update :doc:`COI example </examples/coi_example>` to :doc:`cernml-coi <coi:index>` 0.9.
 - OTHER: Move :doc:`/usage` into a dedicated section.
 

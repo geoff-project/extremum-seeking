@@ -24,11 +24,11 @@ caller's hand.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, overload
 
 import numpy as np
 
-TYPE_CHECKING = False
 if TYPE_CHECKING:
     import sys
     from collections.abc import Generator, Iterable
@@ -57,7 +57,7 @@ Callback: TypeAlias = "Callable[[ExtremumSeeker, Iteration], bool | None]"
 
 def optimize(
     func: Callable[[NDArray[np.floating]], SupportsFloat],
-    x0: NDArray[np.floating],  # pylint: disable=invalid-name
+    x0: NDArray[np.floating],
     *,
     max_calls: int | None = None,
     cost_goal: float | None = None,
@@ -86,7 +86,7 @@ def optimize(
             If any callback returns a truth-like value, optimization
             terminates.
         bounds: If passed, a tuple :samp:`({lower}, {upper})` of bounds
-            within which the updated parameters should lie.
+            within which the updated parameters will be clipped.
         gain: Scaling factor that is applied to the cost function. If
             positive (the default), the controller minimizes the cost
             function; if negative, the controller maximizes it.
@@ -100,8 +100,15 @@ def optimize(
             `ExtremumSeeker.optimize()`.
 
     Returns:
-        If *max_calls* has been supplied, this returns the final set of
-        parameters. Otherwise, this method never returns.
+        Only guaranteed to return if you pass *max_calls*. Otherwise it
+        *may* return if the conditions of *callbacks* or *cost_goal* are
+        satisfied.
+
+        If you pass none of these, this method never returns.
+
+        If this method returns, it returns an `OptimizeResult` with the
+        final set of parameters, the associated cost, and the final
+        number of calls to the cost function.
 
     Example:
         >>> def cost_function(x):
@@ -130,19 +137,18 @@ def optimize(
 
 @dataclass
 class OptimizeResult:
-    """The :doc:`dataclass <std:library/dataclasses>` returned by `optimize()`.
-
-    Args:
-        params: The final set of parameters.
-        cost: Corresponding value of the cost function. If the cost
-            function was never evaluated or immediately raised an
-            exception, this value is `~numpy.nan`.
-        nit: The number of cost function evaluations.
-    """
+    """The :doc:`dataclass <std:library/dataclasses>` returned by `optimize()`."""
 
     params: NDArray[np.double]
+    """The final set of parameters."""
+
     cost: float = np.nan
+    """Value of the cost function evaluated at `params`. If the cost
+    function was never evaluated or immediately raised an exception,
+    this value is `~numpy.nan`."""
+
     nit: int = 0
+    """The final number of cost function evaluations."""
 
     def __str__(self) -> str:
         # Wrap cost and nit so that they obey `np.printoptions`:
@@ -156,27 +162,82 @@ class OptimizeResult:
 
 # TODO: Consider adding `slots=True` once we only support Python 3.10+.
 @dataclass
-class Iteration:
-    """Iteration-specific data for the ES algorithm.
+class Step:
+    """An *ongoing* iteration of the ES algorithm.
 
-    Args:
-        nit: The number of cost function evaluations so far. This is
-            always at least 1.
-        params: The current set of parameters.
-        cost: The cost associated with *params*.
-        amplitude: An additional scaling factor applied to
-            the *oscillation_size* of `ExtremumSeeker`. This is used to
-            decay or otherwise dynamically adjust the dithering
-            amplitudes.
-        bounds: An optional set of bounds on the parameters. If
-            supplied, they will be clipped to this space.
+    This is returned by `.calc_next_step()` and yielded by the
+    :term:`generator` returned by `.make_generator()`. You typically use
+    `params` to evaluate the cost function and pass the result back to
+    the algorithm.
     """
 
     params: NDArray[np.double]
+    """The current set of parameters."""
+
+    nit: int = 0
+    """The number of cost function evaluations so far. Zero if the cost
+    function hasn't been evaluated yet."""
+
+    amplitude: float = 1.0
+    """An additional scaling factor applied to the *oscillation_size* of
+    `ExtremumSeeker`. This is used to decay or otherwise dynamically
+    adjust the dithering amplitudes."""
+
+    bounds: Bounds | None = None
+    """Optional bounds on the parameters. If not None, subsequent
+    parameters will be clipped to this space."""
+
+    def with_cost(self, cost: SupportsFloat) -> Iteration:
+        """Complete the step by passing the *cost* associated with `params`."""
+        return Iteration(
+            params=self.params,
+            cost=float(cost),
+            nit=self.nit + 1,
+            amplitude=self.amplitude,
+            bounds=self.bounds,
+        )
+
+    def __repr__(self) -> str:
+        cls_name = type(self).__name__
+        args = [f"params={self.params!r}"]
+        if self.nit != 0:
+            args.append(f"nit={self.nit!r}")
+        if self.amplitude != 1.0:
+            args.append(f"amplitude={self.amplitude!r}")
+        if self.bounds is not None:
+            args.append(f"bounds={self.bounds!r}")
+        return f"{cls_name}({', '.join(args)})"
+
+
+# TODO: Consider adding `slots=True` once we only support Python 3.10+.
+@dataclass
+class Iteration:
+    """A *completed* iteration of the ES algorithm.
+
+    This is one of the arguments that a `Callback` may receive. You may
+    inspect or store it, or use it to modulate the `amplitude` or
+    `bounds` of the ongoing algorithm. You may also pass it to
+    `.calc_next_step()` to proceed to the next `Step` of the algorithm.
+    """
+
+    params: NDArray[np.double]
+    """The current set of parameters."""
+
     cost: float
+    """The cost associated with `params`."""
+
     nit: int
+    """The number of cost function evaluations so far. Because this
+    object always requires a `cost`, this is always at least 1."""
+
     amplitude: float
+    """An additional scaling factor applied to the *oscillation_size* of
+    `ExtremumSeeker`. This is used to decay or otherwise dynamically
+    adjust the dithering amplitudes."""
+
     bounds: Bounds | None
+    """Optional bounds on the parameters. If not None, subsequent
+    parameters will be clipped to this space."""
 
 
 class ExtremumSeeker:
@@ -249,63 +310,103 @@ class ExtremumSeeker:
         """
         return np.linspace(self._W_MIN, self._W_MAX, ndim)
 
+    @overload
+    def calc_next_step(
+        self, x0: NDArray[np.floating], /, *, cost: float, bounds: Bounds | None = None
+    ) -> Step: ...
+    @overload
+    def calc_next_step(self, step: Step, /, *, cost: float) -> Step: ...
+    @overload
+    def calc_next_step(self, iteration: Iteration, /) -> Step: ...
     def calc_next_step(
         self,
-        params: NDArray[np.floating],
+        prev: Step | Iteration | NDArray[np.floating],
+        /,
         *,
-        cost: float,
-        step: int,
-        amplitude: float = 1.0,
+        cost: SupportsFloat | None = None,
         bounds: Bounds | None = None,
-    ) -> NDArray[np.double]:
+    ) -> Step:
         """Perform one step of the ES algorithm.
 
+        For the first iteration, you can call the overload with *x0*,
+        *cost* and *bounds*.
+
+        For subsequent iterations, you should pass the previous `Step`
+        and the *cost* associated with it---either as separate arguments
+        or combined via `Step.with_cost()`.
+
         Args:
-            params: The previous set of parameters.
-            cost: The cost associated with the previous parameters.
-            step: The index of the current step.
-            amplitude: Scaling factor on *oscillation_size*; can
-                be used to implement amplitude decay.
+            x0: The initial set of parameters.
+            step: The results of the previous iteration.
+            cost: The cost associated with *x0* or the previous *step*.
+            iteration: The previous *step* and its *cost* combined in
+                a single object.
             bounds: If passed, a tuple :samp:`({lower}, {upper})` of
-                bounds within which the updated parameters should lie.
+                bounds within which the updated parameters will be
+                clipped. Must only be passed if *x0* is passed.
 
         Returns:
-            The next set of parameters. An array with the same shape as
-            *params*.
+            The next set `Step` of the algorithm. Contains a new set of
+            parameters, an incremented `~Step.nit` and a possibly
+            decayed `~Step.amplitude`.
 
         Example:
             >>> seeker = ExtremumSeeker()
-            >>> seeker.calc_next_step(np.zeros(2), cost=0.0, step=0)
-            array([0.03590392, 0.06283185])
+            >>> step = seeker.calc_next_step(np.zeros(2), cost=0.0)
+            >>> step
+            Step(params=array([0.0336145 , 0.05083204]), nit=1)
+            >>> step = seeker.calc_next_step(step, cost=0.0)
+            >>> step
+            Step(params=array([0.06065271, 0.07024815]), nit=2)
         """
-        iteration = Iteration(
-            np.asarray(params, dtype=np.double),
-            cost=cost,
-            nit=step,
-            amplitude=amplitude,
-            bounds=bounds,
+        if isinstance(prev, Iteration):
+            if cost is not None:
+                raise TypeError("first argument is an `Iteration`, no 'cost' allowed")
+            if bounds is not None:
+                raise TypeError("first argument is an `Iteration`, no 'bounds' allowed")
+            iteration = prev
+        elif isinstance(prev, Step):
+            if cost is None:
+                raise TypeError("first argument is a `Step`, 'cost' is required")
+            if bounds is not None:
+                raise TypeError("first argument is a `Step`, no 'bounds' allowed")
+            iteration = prev.with_cost(cost)
+        else:
+            if cost is None:
+                raise TypeError(
+                    f"first argument is a `{type(prev).__name__}`, 'cost' is required"
+                )
+            prev = np.asarray(prev, dtype=np.double)
+            iteration = Step(params=prev, bounds=bounds).with_cost(cost)
+        if np.isnan(iteration.cost):
+            raise ValueError(
+                f"cost is NaN (not a number) after {iteration.nit} ES step(s)"
+            )
+        return Step(
+            params=_calc_next_params(self, iteration),
+            nit=iteration.nit,
+            amplitude=iteration.amplitude * self.decay_rate,
+            bounds=iteration.bounds,
         )
-        return _calc_next_step(self, iteration)
 
     def make_generator(
         self,
         x0: NDArray[np.floating],  # pylint: disable=invalid-name
         *,
         bounds: Bounds | None = None,
-    ) -> Generator[Iteration, SupportsFloat, None]:
-        """Create a generator of parameter suggestions.
+    ) -> Generator[Step, SupportsFloat, None]:
+        r"""Create a generator of parameter suggestions.
 
         Args:
             x0: The initial set of parameters to suggest.
             bounds: If passed, a tuple :samp:`({lower}, {upper})` of
-                bounds within which the updated parameters should lie.
+                bounds within which the updated parameters will be
+                clipped.
 
         Returns:
-            A generator *gen* that yields arrays, each of them being a
-            result of `calc_next_step()`. The next cost function value
-            is passed in via :samp:`gen.send({cost})`. After *max_calls*
-            steps, the generator raises `StopIteration` with the final
-            set of parameters as value.
+            A :term:`generator` *gen* that yields `Step`\ s, each being
+            a result of `calc_next_step()`. Pass in the next cost
+            function value via :samp:`{gen}.send({cost})`.
 
         Example:
             >>> def cost_function(x):
@@ -313,41 +414,20 @@ class ExtremumSeeker:
             ...
             >>> seeker = ExtremumSeeker()
             >>> gen = seeker.make_generator(np.zeros(2))
-            >>> it = next(gen)
-            >>> cost = cost_function(it.params)
+            >>> step = next(gen)
             >>> for _ in range(10):
-            ...     it = gen.send(cost)
-            ...     cost = cost_function(it.params)
-            >>> it.params
+            ...     cost = cost_function(step.params)
+            ...     step = gen.send(cost)
+            >>> step.params
             array([-0.07720379,  0.00018237])
         """
-        iteration = Iteration(
-            np.asarray(x0, dtype=np.double),
-            bounds=bounds,
-            cost=float("nan"),
-            amplitude=1.0,
-            nit=1,
-        )
+        step = Step(np.asarray(x0, dtype=np.double), bounds=bounds)
         while True:
-            cost = yield iteration
+            cost = yield step
             if cost is None:
                 raise TypeError("no cost passed; make sure to call `self.send(cost)`")
-            iteration.cost = float(cost)
-            if np.isnan(iteration.cost):
-                raise ValueError(
-                    f"cost is NaN (not a number) after {iteration.nit} ES step(s)"
-                )
-            # This line still uses the old `iteration` object.
-            next_params = _calc_next_step(self, iteration)
-            # Make sure to create a new `iteration` in case the user
-            # stored the old one.
-            iteration = replace(
-                iteration,
-                cost=float("nan"),
-                params=next_params,
-                amplitude=iteration.amplitude * self.decay_rate,
-                nit=iteration.nit + 1,
-            )
+            iteration = step.with_cost(cost)
+            step = self.calc_next_step(iteration)
 
     def optimize(
         self,
@@ -376,11 +456,19 @@ class ExtremumSeeker:
                 current `Iteration`. If any callback returns any
                 truth-like value, optimization terminates.
             bounds: If passed, a tuple :samp:`({lower}, {upper})` of
-                bounds within which the updated parameters should lie.
+                bounds within which the updated parameters will be
+                clipped.
 
         Returns:
-            If *max_calls* has been supplied, this returns the final set
-            of parameters. Otherwise, this method never returns.
+            Only guaranteed to return if you pass *max_calls*. Otherwise
+            it *may* return if the conditions of *callbacks* or
+            *cost_goal* are satisfied.
+
+            If you pass none of these, this method never returns.
+
+            If this method returns, it returns an `OptimizeResult` with
+            the final set of parameters, the associated cost, and the
+            final number of calls to the cost function.
 
         Example:
             >>> def cost_function(x):
@@ -399,12 +487,12 @@ class ExtremumSeeker:
         if max_calls is not None and max_calls <= 0:
             return OptimizeResult(np.asarray(x0, dtype=np.double))
         callbacks = _consolidate_callbacks(callbacks, max_calls, cost_goal)
-        generator = self.make_generator(x0, bounds=bounds)
-        iteration = next(generator)
-        iteration.cost = float(func(iteration.params))
-        while not callbacks(self, iteration):
-            iteration = generator.send(iteration.cost)
-            iteration.cost = float(func(iteration.params))
+        step = Step(x0, bounds=bounds)
+        while True:
+            iteration = step.with_cost(func(step.params))
+            if callbacks(self, iteration):
+                break
+            step = self.calc_next_step(iteration)
         return _make_result_from_iteration(iteration)
 
 
@@ -457,7 +545,7 @@ def _make_result_from_iteration(iteration: Iteration) -> OptimizeResult:
     return OptimizeResult(iteration.params, iteration.cost, iteration.nit)
 
 
-def _calc_next_step(seeker: ExtremumSeeker, data: Iteration) -> NDArray[np.double]:
+def _calc_next_params(seeker: ExtremumSeeker, data: Iteration) -> NDArray[np.double]:
     """Perform one step of the ES algorithm."""
     # Ensure that we have a flat array.
     params = np.asarray(data.params, dtype=np.double)

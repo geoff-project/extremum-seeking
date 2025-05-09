@@ -67,4 +67,6 @@ Helper Types
 
 .. autoclass:: OptimizeResult()
 
+.. autoclass:: Step()
+
 .. autoclass:: Iteration()

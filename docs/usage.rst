@@ -32,8 +32,8 @@ Defining a cost function and creating an `.ExtremumSeeker` object:
 Executing a single control step:
 
     >>> x0 = rng.normal(0.1, size=loc.shape)
-    >>> seeker.calc_next_step(x0, cost=cost_function(x0), step=0)
-    array([0.26159863, 0.03066484])
+    >>> seeker.calc_next_step(x0, cost=cost_function(x0))
+    Step(params=array([0.25875051, 0.01703471]), nit=1)
 
 Creating a generator that receives cost values and yields the next
 parameter to evaluate:
