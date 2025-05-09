@@ -21,6 +21,7 @@ https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 from __future__ import annotations
 
+import collections.abc
 import pathlib
 import sys
 import typing as t
@@ -183,13 +184,21 @@ def fix_broken_crossrefs(
     This hook simply looks them up a second time with :role:`any` and
     returns whatever is found.
     """
-    if node["reftarget"].startswith("np."):
-        _, name = node["reftarget"].split(".")
+    reftarget = node["reftarget"]
+    if reftarget in vars(collections.abc):
+        node["reftarget"] = "collections.abc." + reftarget
+        return retry_resolve_xref(app, env, node, contnode)
+    if reftarget in vars(t):
+        node["reftype"] = "obj"
+        node["reftarget"] = "typing." + reftarget
+        return retry_resolve_xref(app, env, node, contnode)
+    if reftarget.startswith("np."):
+        _, name = reftarget.split(".")
         node["reftarget"] = "numpy." + name
         contnode = t.cast(nodes.TextElement, nodes.Text(name))
         return retry_resolve_xref(app, env, node, contnode)
-    if node["reftarget"] in autodoc_type_aliases:
-        node["reftarget"] = autodoc_type_aliases[node["reftarget"]]
+    if reftarget in autodoc_type_aliases:
+        node["reftarget"] = autodoc_type_aliases[reftarget]
         node["reftype"] = "obj"
         return retry_resolve_xref(app, env, node, contnode)
     return None

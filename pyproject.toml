@@ -57,6 +57,7 @@ doc = [
     'Sphinx >= 7.1',
     'python-docs-theme',
     'importlib-metadata; python_version<"3.10"',
+    'typing-extensions; python_version<"3.10"',
 ]
 test = [
     'pytest',
@@ -65,6 +66,7 @@ test = [
 lint = [
     'cernml-extremum-seeking[examples,doc,test]',
     'types-docutils',
+    'typing-extensions; python_version<"3.10"',
 ]
 
 [project.urls]

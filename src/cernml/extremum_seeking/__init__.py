@@ -22,11 +22,24 @@ drifting/noisy optimum). It also provides a coroutine-based interface,
 caller's hand.
 """
 
-import typing as t
+from __future__ import annotations
+
 from dataclasses import dataclass, replace
 
 import numpy as np
-from numpy.typing import NDArray
+
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    import sys
+    from collections.abc import Generator, Iterable
+    from typing import Any, Callable, SupportsFloat
+
+    from numpy.typing import NDArray
+
+    if sys.version_info < (3, 10):
+        from typing_extensions import TypeAlias
+    else:
+        from typing import TypeAlias
 
 __all__ = (
     "Bounds",
@@ -37,24 +50,24 @@ __all__ = (
     "optimize",
 )
 
-Bounds = tuple[NDArray[np.floating], NDArray[np.floating]]
+Bounds: TypeAlias = "tuple[NDArray[np.floating], NDArray[np.floating]]"
 
-Callback = t.Callable[["ExtremumSeeker", "Iteration"], t.Optional[bool]]
+Callback: TypeAlias = "Callable[[ExtremumSeeker, Iteration], bool | None]"
 
 
 def optimize(
-    func: t.Callable[["NDArray[np.floating]"], t.SupportsFloat],
-    x0: "NDArray[np.floating]",  # pylint: disable=invalid-name
+    func: Callable[[NDArray[np.floating]], SupportsFloat],
+    x0: NDArray[np.floating],  # pylint: disable=invalid-name
     *,
-    max_calls: t.Optional[int] = None,
-    cost_goal: t.Optional[float] = None,
-    callbacks: t.Union["Callback", t.Iterable["Callback"]] = (),
-    bounds: t.Optional["Bounds"] = None,
+    max_calls: int | None = None,
+    cost_goal: float | None = None,
+    callbacks: Callback | Iterable[Callback] = (),
+    bounds: Bounds | None = None,
     gain: float = 0.2,
     oscillation_size: float = 0.1,
     oscillation_sampling: int = 10,
     decay_rate: float = 1.0,
-) -> "OptimizeResult":
+) -> OptimizeResult:
     """Run an optimization loop using ES.
 
     Args:
@@ -127,7 +140,7 @@ class OptimizeResult:
         nit: The number of cost function evaluations.
     """
 
-    params: "NDArray[np.double]"
+    params: NDArray[np.double]
     cost: float = np.nan
     nit: int = 0
 
@@ -159,11 +172,11 @@ class Iteration:
             supplied, they will be clipped to this space.
     """
 
-    params: "NDArray[np.double]"
+    params: NDArray[np.double]
     cost: float
     nit: int
     amplitude: float
-    bounds: t.Optional["Bounds"]
+    bounds: Bounds | None
 
 
 class ExtremumSeeker:
@@ -227,7 +240,7 @@ class ExtremumSeeker:
         """
         return 2 * np.pi / (self.oscillation_sampling * self._W_MAX)
 
-    def get_dithering_freqs(self, ndim: int) -> "NDArray[np.double]":
+    def get_dithering_freqs(self, ndim: int) -> NDArray[np.double]:
         """Calculate the frequencies necessary for dithering.
 
         This returns a 1D array of length *ndim*, one for each parameter
@@ -238,13 +251,13 @@ class ExtremumSeeker:
 
     def calc_next_step(
         self,
-        params: "NDArray[np.floating]",
+        params: NDArray[np.floating],
         *,
         cost: float,
         step: int,
         amplitude: float = 1.0,
-        bounds: t.Optional["Bounds"] = None,
-    ) -> "NDArray[np.double]":
+        bounds: Bounds | None = None,
+    ) -> NDArray[np.double]:
         """Perform one step of the ES algorithm.
 
         Args:
@@ -276,10 +289,10 @@ class ExtremumSeeker:
 
     def make_generator(
         self,
-        x0: "NDArray[np.floating]",  # pylint: disable=invalid-name
+        x0: NDArray[np.floating],  # pylint: disable=invalid-name
         *,
-        bounds: t.Optional["Bounds"] = None,
-    ) -> t.Generator[Iteration, t.SupportsFloat, None]:
+        bounds: Bounds | None = None,
+    ) -> Generator[Iteration, SupportsFloat, None]:
         """Create a generator of parameter suggestions.
 
         Args:
@@ -338,13 +351,13 @@ class ExtremumSeeker:
 
     def optimize(
         self,
-        func: t.Callable[["NDArray[np.double]"], t.SupportsFloat],
-        x0: "NDArray[np.floating]",  # pylint: disable=invalid-name
+        func: Callable[[NDArray[np.double]], SupportsFloat],
+        x0: NDArray[np.floating],  # pylint: disable=invalid-name
         *,
-        max_calls: t.Optional[int] = None,
-        cost_goal: t.Optional[float] = None,
-        callbacks: t.Union["Callback", t.Iterable["Callback"]] = (),
-        bounds: t.Optional["Bounds"] = None,
+        max_calls: int | None = None,
+        cost_goal: float | None = None,
+        callbacks: Callback | Iterable[Callback] = (),
+        bounds: Bounds | None = None,
     ) -> OptimizeResult:
         """Run an optimization loop using ES.
 
@@ -396,14 +409,14 @@ class ExtremumSeeker:
 
 
 def _consolidate_callbacks(
-    callbacks: t.Union["Callback", t.Iterable["Callback"]] = (),
-    max_calls: t.Optional[int] = None,
-    cost_goal: t.Optional[float] = None,
-) -> "_CallbackList":
-    if isinstance(callbacks, t.Iterable):
-        callbacks = _CallbackList(callbacks)
-    else:
-        callbacks = _CallbackList([callbacks])
+    callbacks: Callback | Iterable[Callback] = (),
+    max_calls: int | None = None,
+    cost_goal: float | None = None,
+) -> _CallbackList:
+    try:
+        callbacks = _CallbackList(callbacks)  # type: ignore[arg-type]
+    except TypeError:
+        callbacks = _CallbackList([callbacks])  # type: ignore[list-item]
     if cost_goal is not None:
         callbacks.append(_make_cost_goal_callback(cost_goal))
     if max_calls is not None:
@@ -425,7 +438,7 @@ class _CallbackList(list[Callback]):
         return any([bool(cb(seeker, iteration)) for cb in self])  # noqa: C419
 
 
-def _make_cost_goal_callback(cost_goal: float) -> "Callback":
+def _make_cost_goal_callback(cost_goal: float) -> Callback:
     def _cost_goal(seeker: ExtremumSeeker, iteration: Iteration) -> bool:
         cost = iteration.cost
         return (cost < cost_goal) if seeker.gain > 0.0 else (cost > cost_goal)
@@ -433,7 +446,7 @@ def _make_cost_goal_callback(cost_goal: float) -> "Callback":
     return _cost_goal
 
 
-def _make_max_calls_callback(max_calls: int) -> "Callback":
+def _make_max_calls_callback(max_calls: int) -> Callback:
     def _max_calls(_: ExtremumSeeker, iteration: Iteration) -> bool:
         return iteration.nit >= max_calls
 
@@ -444,7 +457,7 @@ def _make_result_from_iteration(iteration: Iteration) -> OptimizeResult:
     return OptimizeResult(iteration.params, iteration.cost, iteration.nit)
 
 
-def _calc_next_step(seeker: ExtremumSeeker, data: Iteration) -> "NDArray[np.double]":
+def _calc_next_step(seeker: ExtremumSeeker, data: Iteration) -> NDArray[np.double]:
     """Perform one step of the ES algorithm."""
     # Ensure that we have a flat array.
     params = np.asarray(data.params, dtype=np.double)
@@ -469,7 +482,7 @@ def _calc_next_step(seeker: ExtremumSeeker, data: Iteration) -> "NDArray[np.doub
 
 
 def _check_bounds_shape(
-    ndim: int, lower: "NDArray[np.floating]", upper: "NDArray[np.floating]"
+    ndim: int, lower: NDArray[np.floating], upper: NDArray[np.floating]
 ) -> None:
     if np.shape(lower) != (ndim,):
         raise ValueError(
@@ -488,10 +501,13 @@ class _PrintOptionsAdapter:
 
     __slots__ = ("_value",)
 
-    def __init__(self, value: t.Any) -> None:
+    def __init__(self, value: Any) -> None:
         self._value = value
 
     def __str__(self) -> str:
         if np.isscalar(self._value):
             return str(np.array([self._value]))[1:-1]
         return str(self._value)
+
+
+del TYPE_CHECKING
