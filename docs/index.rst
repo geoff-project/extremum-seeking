@@ -22,8 +22,7 @@ towards global minima.
 
 This package provides both an interface for numeric optimization (locating an
 optimum) and for adaptive control (tracking a drifting/noisy optimum). It also
-provides a coroutine-based interface,
-`~cernml.extremum_seeking.ExtremumSeeker.make_generator()`, to leave the
+provides a :term:`generator`-based interface (`.make_generator()`) to leave the
 control loop in the caller's hand.
 
 This repository can be found online on CERN's Gitlab_.

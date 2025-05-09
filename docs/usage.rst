@@ -8,13 +8,11 @@
 Usage
 =====
 
-Defining a cost function and creating an `.ExtremumSeeker` object:
-
 ..
     >>> from numpy.typing import NDArray
     >>> from cernml.extremum_seeking import Iteration, Callback
 
-.. code-block:: python
+First, define the *cost function* whose minimum you want to find and track:
 
     >>> import numpy as np
     >>> from cernml.extremum_seeking import ExtremumSeeker
@@ -27,49 +25,79 @@ Defining a cost function and creating an `.ExtremumSeeker` object:
     ...     loc[:] += drift
     ...     cost = np.linalg.norm(loc + noise - params)
     ...     return cost
+
+Then create an `.ExtremumSeeker` object:
+
     >>> seeker = ExtremumSeeker(oscillation_size=0.1)
 
-Executing a single control step:
+
+Single-stepping the Algorithm
+-----------------------------
+
+Use `.calc_next_step()` to make a single control step:
 
     >>> x0 = rng.normal(0.1, size=loc.shape)
-    >>> seeker.calc_next_step(x0, cost=cost_function(x0))
+    >>> step = seeker.calc_next_step(x0, cost=cost_function(x0))
+    >>> step
     Step(params=array([0.25875051, 0.01703471]), nit=1)
 
-Creating a generator that receives cost values and yields the next
-parameter to evaluate:
+The `~.Step.params` attribute contains the next set of parameters suggested by
+the algorithm. To continue, evaluate the cost function again and pass the
+result back:
+
+    >>> seeker.calc_next_step(step, cost=cost_function(step.params))
+    Step(params=array([0.28462345, 0.03355959]), nit=2)
+
+Using a Generator
+-----------------
+
+Alternatively, you can also call `.make_generator()` to create
+a :term:`generator` that receives cost values and yields the next step:
 
     >>> gen = seeker.make_generator(x0)
-    >>> cost = None
+    >>> step = next(gen)
     >>> for i in range(10):
-    ...     it = gen.send(cost)
-    ...     cost = cost_function(it.params)
-    >>> it.params
-    array([ 0.16964995, -0.09272651])
+    ...     cost = cost_function(step.params)
+    ...     step = gen.send(cost)
+    >>> step.params
+    array([ 0.13778937, -0.0300518 ])
 
-Running an optimization loop for a fixed number of steps:
+Running an Optimization Loop
+----------------------------
+
+You can use `~.ExtremumSeeker.optimize()` to run an optimization loop for
+a fixed number of steps:
 
     >>> res = seeker.optimize(cost_function, x0, max_calls=10)
     >>> print(res)
-    params: [ 0.16998328 -0.09349066]
-      cost: 0.18957208
+    params: [ 0.17010622 -0.0937126 ]
+      cost: 0.19667245
        nit: 10
 
+For convenience, there's also a module-level function
+`~cernml.extremum_seeking.optimize()` that allows you to skip creating an
+`.ExtremumSeeker` in the first place.
 
-Running an optimization loop until the cost is sufficiently small:
+Pass the *cost_goal* argument to run an optimization loop until the cost is
+sufficiently small:
 
     >>> res = seeker.optimize(cost_function, x0, cost_goal=0.01)
     >>> round(cost_function(res.params), 6)
-    np.float64(0.010504)
+    np.float64(0.007859)
 
-Passing a callback function to the optimization loop:
+Using Callback Functions
+------------------------
+
+You can pass a callback function to the optimization loop:
 
     >>> def printer(seeker: ExtremumSeeker, iteration: Iteration):
     ...     print("Cost:", round(iteration.cost, 6))
     >>> _ = seeker.optimize(cost_function, x0, max_calls=1, callbacks=printer)
-    Cost: 0.621505
+    Cost: 0.63442
 
-Passing multiple callbacks, one of which ends the loop immediately by
-returning `True`:
+You can also pass multiple callbacks. If any of them returns `True`, the
+optimization loop ends. (However, for a given iteration, all callbacks are
+called.)
 
     >>> def make_printer(text: str) -> Callback:
     ...     def callback(*args):

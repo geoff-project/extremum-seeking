@@ -32,7 +32,8 @@ To use the source repository, you must first install it as well:
 Examples
 --------
 
-See the :doc:`/examples/index` page and the :doc:`/api`.
+See the :doc:`/usage` examples, the dedicated :doc:`/examples/index` page and
+the :doc:`/api`.
 
 Citation
 --------

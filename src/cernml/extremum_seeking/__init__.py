@@ -15,10 +15,10 @@ global minima.
 
 .. _Scheinker et al.: https://doi.org/10.1002/acs.3097
 
-The extremum seeking algorithm provides both an interface for numeric
-optimization (locating an optimum) and for adaptive control (tracking a
-drifting/noisy optimum). It also provides a coroutine-based interface,
-`~ExtremumSeeker.make_generator()`, to leave the control loop in the
+This package provides both an interface for numeric optimization
+(locating an optimum) and for adaptive control (tracking
+a drifting/noisy optimum). It also provides a :term:`generator`-based
+interface (`.make_generator()`) to leave the control loop in the
 caller's hand.
 """
 
@@ -95,9 +95,7 @@ def optimize(
         oscillation_sampling: Number of sampling points per dithering
             oscillation period. Larger values mean smaller time steps.
         decay_rate: An optional factor between 0 and 1 that reduces the
-            *oscillation_size* after each step. Only used by
-            `ExtremumSeeker.make_generator()` and
-            `ExtremumSeeker.optimize()`.
+            *oscillation_size* after each step.
 
     Returns:
         Only guaranteed to return if you pass *max_calls*. Otherwise it
@@ -241,25 +239,23 @@ class Iteration:
 
 
 class ExtremumSeeker:
-    """Extremum-seeking controller. See module docstring for more info.
+    """Extremum-seeking controller.
+
+    Once created, you can use the controller via `calc_next_step()`,
+    `make_generator()` or `optimize()`.
 
     Args:
-        gain: Scaling factor that is applied to the cost function. If
-            positive (the default), the controller minimizes the cost
+        gain: The scaling factor that is applied to the cost function.
+            If positive (the default), the controller minimizes the cost
             function; if negative, the controller maximizes it.
-        oscillation_size: Amplitude of the dithering oscillations if the
-            cost were held constant.
-        oscillation_sampling: Number of sampling points per dithering
+        oscillation_size: The amplitude of the dithering oscillations if
+            the cost were held constant.
+        oscillation_sampling: The number of sampling points per dithering
             oscillation period. Larger values mean smaller time steps.
         decay_rate: An optional factor between 0 and 1 that reduces the
-            *oscillation_size* after each step. Only used by
-            `make_generator()` and `optimize()`.
+            *oscillation_size* after each step.
 
-    Attributes:
-        gain: The cost function scaling factor.
-        oscillation_size: The dithering oscillation amplitude.
-        oscillation_sampling: The number of samples per period.
-        decay_rate: The amplitude decay rate.
+    Each of these arguments is also available as an attribute.
 
     Example:
         >>> def func(x):
