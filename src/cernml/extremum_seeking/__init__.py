@@ -167,6 +167,19 @@ class Step:
     :term:`generator` returned by `.make_generator()`. You typically use
     `params` to evaluate the cost function and pass the result back to
     the algorithm.
+
+    Examples:
+        >>> seeker = ExtremumSeeker()
+        >>> x0 = np.zeros(2)
+        >>> step = Step(x0, bounds=(x0 - 1, x0 + 1))
+        >>> step
+        Step(params=array([0., 0.]), bounds=(array([-1., -1.]), array([1., 1.])))
+        >>> step = seeker.calc_next_step(step, cost=0.0)
+        >>> # You are free to modify `step` between calls.
+        >>> step.bounds = None
+        >>> step.amplitude = 0.5
+        >>> step
+        Step(params=array([0.0336145 , 0.05083204]), nit=1, amplitude=0.5)
     """
 
     params: NDArray[np.double]

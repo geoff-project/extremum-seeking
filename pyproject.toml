@@ -100,12 +100,14 @@ branch = true
 
 [tool.coverage.report]
 exclude_also = [
-    '^\s*from .* import',
-    '^\s*import ',
+    '^\s*@.*\boverload$',
+    '^\s*def __del__',
     '^\s*except ImportError:$',
-    'def __del__',
-    'if .*\.TYPE_CHECKING',
-    'raise NotImplementedError',
+    '^\s*from .* import',
+    '^\s*if .*\bTYPE_CHECKING:$',
+    '^\s*if sys\.version_info ..? \(\d, \d+\):$',
+    '^\s*import ',
+    '^\s*raise NotImplementedError',
 ]
 
 [tool.ruff]
@@ -157,5 +159,6 @@ score = false
 disable = [
     'duplicate-code',
     'fixme',
+    'line-too-long',
     'too-many-arguments',
 ]

@@ -166,3 +166,25 @@ def test_iteration_nit_value() -> None:
     assert iterations[0].nit == 1
     assert iterations[1].nit == 2
     assert iterations[2].nit == 3
+
+
+def test_calc_next_step_bad_cost() -> None:
+    seeker = es.ExtremumSeeker()
+    with pytest.raises(TypeError, match="no 'cost' allowed$"):
+        seeker.calc_next_step(Mock(es.Iteration), cost=0.0)
+
+
+def test_calc_next_step_bad_bounds() -> None:
+    seeker = es.ExtremumSeeker()
+    with pytest.raises(TypeError, match="no 'bounds' allowed$"):
+        seeker.calc_next_step(Mock(es.Iteration), bounds=Mock(name="bounds"))  # type: ignore[call-overload]
+    with pytest.raises(TypeError, match="no 'bounds' allowed$"):
+        seeker.calc_next_step(Mock(es.Step), cost=0.0, bounds=Mock(name="bounds"))
+
+
+def test_calc_next_step_no_cost() -> None:
+    seeker = es.ExtremumSeeker()
+    with pytest.raises(TypeError, match="'cost' is required$"):
+        seeker.calc_next_step(Mock(es.Step))
+    with pytest.raises(TypeError, match="'cost' is required$"):
+        seeker.calc_next_step(np.zeros(3))  # type: ignore[call-overload]
