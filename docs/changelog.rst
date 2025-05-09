@@ -13,6 +13,11 @@ Changelog
 Unreleased
 ----------
 
+No changes yet!
+
+v4.1.0
+------
+
 - ADD: Compatibility with NumPy 2.0.
 - FIX: Missing argument in docs for `ExtremumSeeker.optimize()`.
 - FIX: To avoid confusion, `.make_generator()` and `.calc_next_step()` now return `Step` objects *without* a *cost* attribute. Callbacks continue to receive the full `.Iteration` objects.
