@@ -13,7 +13,21 @@ Changelog
 Unreleased
 ----------
 
-No changes yet!
+- ADD: `ExtremumSeeker.oscillation_size` now accepts a per-dimension
+  array of shape :samp:`({ndim},)` in addition to a scalar. The
+  Lie-bracket averaging convergence proof for ES only requires distinct,
+  non-resonant dithering frequencies, not uniform amplitudes, so
+  per-axis amplitudes are theoretically standard. Useful when control
+  parameters have very different physical scales (e.g. millimetres and
+  microradians on the same crystal). The previous scalar behaviour is
+  unchanged.
+- ADD: Adaptive amplitude controlled by a target cost. The new
+  ``cost_target`` constructor parameter, together with ``amplitude_min``,
+  ``amplitude_max``, ``amplitude_midpoint`` and ``amplitude_sensitivity``,
+  configures a sigmoid mapping of :samp:`|cost - cost_target|` onto
+  `Step.amplitude`. When set, this replaces the ``decay_rate`` schedule;
+  setting both together raises `ValueError`. The new public helper
+  `ExtremumSeeker.adaptive_amplitude()` exposes the mapping directly.
 
 v4.1.0
 ------

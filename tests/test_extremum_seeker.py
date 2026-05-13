@@ -188,3 +188,132 @@ def test_calc_next_step_no_cost() -> None:
         seeker.calc_next_step(Mock(es.Step))
     with pytest.raises(TypeError, match="'cost' is required$"):
         seeker.calc_next_step(np.zeros(3))  # type: ignore[call-overload]
+
+
+# ---------------------------------------------------------------------------
+# Per-dimension oscillation_size
+# ---------------------------------------------------------------------------
+
+
+def test_oscillation_size_per_dim_scales_each_axis() -> None:
+    """Per-axis oscillation_size scales each axis's first move proportionally."""
+    # Use a constant zero cost so the only differences between runs come
+    # from oscillation_size. Set a non-default amplitude on the seed step
+    # so the test does not depend on Step's default amplitude.
+    x0 = np.zeros(2)
+    scalar_seeker = es.ExtremumSeeker(oscillation_size=1.0)
+    scalar_step = scalar_seeker.calc_next_step(x0, cost=0.0)
+    # Per-dim with axis-0 doubled and axis-1 left identical.
+    vec_seeker = es.ExtremumSeeker(oscillation_size=np.array([2.0, 1.0]))
+    vec_step = vec_seeker.calc_next_step(x0, cost=0.0)
+    assert np.isclose(vec_step.params[0], 2.0 * scalar_step.params[0])
+    assert np.isclose(vec_step.params[1], 1.0 * scalar_step.params[1])
+
+
+def test_oscillation_size_wrong_shape_raises() -> None:
+    seeker = es.ExtremumSeeker(oscillation_size=np.ones(3))
+    with pytest.raises(ValueError, match="oscillation_size has wrong shape"):
+        seeker.calc_next_step(np.zeros(2), cost=0.0)
+
+
+def test_oscillation_size_nd_array_raises() -> None:
+    seeker = es.ExtremumSeeker(oscillation_size=np.ones((2, 2)))
+    with pytest.raises(ValueError, match="must be a scalar or a 1-D array"):
+        seeker.calc_next_step(np.zeros(2), cost=0.0)
+
+
+# ---------------------------------------------------------------------------
+# Adaptive amplitude (cost_target)
+# ---------------------------------------------------------------------------
+
+
+def test_adaptive_amplitude_large_error_near_max() -> None:
+    seeker = es.ExtremumSeeker(
+        cost_target=0.0,
+        amplitude_min=0.1,
+        amplitude_max=5.0,
+        amplitude_midpoint=0.3,
+        amplitude_sensitivity=7.0,
+    )
+    # error much larger than midpoint → sigmoid saturates near 1 → amp near max.
+    assert seeker.adaptive_amplitude(10.0) == pytest.approx(5.0, abs=1e-6)
+
+
+def test_adaptive_amplitude_small_error_near_min() -> None:
+    seeker = es.ExtremumSeeker(
+        cost_target=0.0,
+        amplitude_min=0.1,
+        amplitude_max=5.0,
+        amplitude_midpoint=10.0,   # midpoint deliberately far above zero
+        amplitude_sensitivity=7.0, # so error=0 sits well below the 50% point
+    )
+    # error << midpoint → sigmoid saturates near 0 → amp near amplitude_min.
+    assert seeker.adaptive_amplitude(0.0) == pytest.approx(0.1, abs=1e-6)
+
+
+def test_adaptive_amplitude_at_midpoint_is_halfway() -> None:
+    seeker = es.ExtremumSeeker(
+        cost_target=0.0,
+        amplitude_min=0.0,
+        amplitude_max=10.0,
+        amplitude_midpoint=0.5,
+        amplitude_sensitivity=7.0,
+    )
+    # |cost - target| == midpoint → sigmoid = 0.5 → amp = (min + max)/2.
+    assert seeker.adaptive_amplitude(0.5) == pytest.approx(5.0, abs=1e-6)
+
+
+def test_adaptive_amplitude_drives_step_amplitude() -> None:
+    """calc_next_step assigns the adaptive amplitude to the next Step."""
+    seeker = es.ExtremumSeeker(
+        cost_target=0.0,
+        amplitude_min=0.1,
+        amplitude_max=5.0,
+        amplitude_midpoint=0.3,
+        amplitude_sensitivity=7.0,
+    )
+    step = seeker.calc_next_step(np.zeros(2), cost=10.0)
+    assert step.amplitude == pytest.approx(seeker.adaptive_amplitude(10.0))
+    # And a low-error cost yields a small amplitude.
+    step = seeker.calc_next_step(step, cost=0.0)
+    assert step.amplitude == pytest.approx(seeker.adaptive_amplitude(0.0))
+
+
+def test_adaptive_amplitude_without_cost_target_raises() -> None:
+    seeker = es.ExtremumSeeker()
+    with pytest.raises(ValueError, match="cost_target to be set"):
+        seeker.adaptive_amplitude(0.0)
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "match"),
+    [
+        ({"cost_target": np.nan}, "cost_target must be finite"),
+        ({"cost_target": 0.0, "decay_rate": 0.5}, "non-default decay_rate"),
+        ({"cost_target": 0.0, "amplitude_min": -1.0}, "amplitude_min"),
+        ({"cost_target": 0.0, "amplitude_max": 0.0}, "amplitude_max must be strictly positive"),
+        ({"cost_target": 0.0, "amplitude_min": 1.0, "amplitude_max": 0.5}, "must be >="),
+        ({"cost_target": 0.0, "amplitude_midpoint": -1.0}, "amplitude_midpoint"),
+        ({"cost_target": 0.0, "amplitude_sensitivity": 0.0}, "amplitude_sensitivity"),
+    ],
+)
+def test_adaptive_amplitude_bad_config(kwargs: dict, match: str) -> None:
+    with pytest.raises(ValueError, match=match):
+        es.ExtremumSeeker(**kwargs)
+
+
+def test_cost_target_disables_decay() -> None:
+    """When cost_target is set, decay_rate is ignored — amplitude is recomputed."""
+    seeker = es.ExtremumSeeker(
+        cost_target=0.0,
+        amplitude_min=0.5,
+        amplitude_max=0.5,  # collapse: adaptive amp is always 0.5.
+        amplitude_midpoint=1.0,
+        amplitude_sensitivity=1.0,
+    )
+    step = seeker.calc_next_step(np.zeros(2), cost=2.0)
+    assert step.amplitude == pytest.approx(0.5)
+    # Even after many steps, amplitude stays at adaptive value (no decay).
+    for _ in range(10):
+        step = seeker.calc_next_step(step, cost=2.0)
+    assert step.amplitude == pytest.approx(0.5)

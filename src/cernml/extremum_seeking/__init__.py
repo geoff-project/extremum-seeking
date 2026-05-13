@@ -64,9 +64,14 @@ def optimize(
     callbacks: Callback | Iterable[Callback] = (),
     bounds: Bounds | None = None,
     gain: float = 0.2,
-    oscillation_size: float = 0.1,
+    oscillation_size: float | NDArray[np.floating] = 0.1,
     oscillation_sampling: int = 10,
     decay_rate: float = 1.0,
+    cost_target: float | None = None,
+    amplitude_min: float = 0.1,
+    amplitude_max: float = 5.0,
+    amplitude_midpoint: float = 0.3,
+    amplitude_sensitivity: float = 7.0,
 ) -> OptimizeResult:
     """Run an optimization loop using ES.
 
@@ -91,11 +96,21 @@ def optimize(
             positive (the default), the controller minimizes the cost
             function; if negative, the controller maximizes it.
         oscillation_size: Amplitude of the dithering oscillations if the
-            cost were held constant.
+            cost were held constant. Accepts either a scalar or an array
+            of shape :samp:`({ndim},)` for per-parameter amplitudes — see
+            `ExtremumSeeker` for details.
         oscillation_sampling: Number of sampling points per dithering
             oscillation period. Larger values mean smaller time steps.
         decay_rate: An optional factor between 0 and 1 that reduces the
-            *oscillation_size* after each step.
+            *oscillation_size* after each step. Ignored if *cost_target*
+            is set.
+        cost_target: If given, enables adaptive amplitude — see
+            `ExtremumSeeker` for the full schedule.
+        amplitude_min: Lower bound of the adaptive amplitude.
+        amplitude_max: Upper bound of the adaptive amplitude.
+        amplitude_midpoint: Cost-error value at which the sigmoid is at
+            its 50% point.
+        amplitude_sensitivity: Steepness of the sigmoid transition.
 
     Returns:
         Only guaranteed to return if you pass *max_calls*. Otherwise it
@@ -122,6 +137,11 @@ def optimize(
         oscillation_size=oscillation_size,
         oscillation_sampling=oscillation_sampling,
         gain=gain,
+        cost_target=cost_target,
+        amplitude_min=amplitude_min,
+        amplitude_max=amplitude_max,
+        amplitude_midpoint=amplitude_midpoint,
+        amplitude_sensitivity=amplitude_sensitivity,
     )
     return seeker.optimize(
         func=func,
@@ -262,11 +282,38 @@ class ExtremumSeeker:
             If positive (the default), the controller minimizes the cost
             function; if negative, the controller maximizes it.
         oscillation_size: The amplitude of the dithering oscillations if
-            the cost were held constant.
+            the cost were held constant. Accepts either a scalar (the
+            same amplitude across all parameters) or an array-like of
+            shape :samp:`({ndim},)` for per-parameter amplitudes. The
+            per-parameter form is theoretically standard for ES — the
+            Lie-bracket averaging convergence proof requires only
+            distinct, non-resonant dithering frequencies, not uniform
+            amplitudes — and is useful when parameters have very
+            different physical scales.
         oscillation_sampling: The number of sampling points per dithering
             oscillation period. Larger values mean smaller time steps.
         decay_rate: An optional factor between 0 and 1 that reduces the
-            *oscillation_size* after each step.
+            *oscillation_size* after each step. Ignored if *cost_target*
+            is set (see below).
+        cost_target: If given, the controller computes `Step.amplitude`
+            adaptively from the cost error :samp:`|cost - cost_target|`
+            using a sigmoid mapping, instead of decaying it. Large errors
+            yield amplitudes close to *amplitude_max*; small errors
+            shrink the amplitude towards *amplitude_min*. Setting this
+            together with a non-default *decay_rate* is a configuration
+            error and raises `ValueError`.
+        amplitude_min: Lower bound of the adaptive amplitude. Only used
+            when *cost_target* is set. Must be non-negative; zero is
+            permitted and means the dithering vanishes asymptotically as
+            the cost approaches the target.
+        amplitude_max: Upper bound of the adaptive amplitude. Only used
+            when *cost_target* is set. Must be strictly positive and
+            satisfy :samp:`amplitude_max >= amplitude_min`.
+        amplitude_midpoint: The cost-error value at which the sigmoid
+            reaches its 50% point. Only used when *cost_target* is set.
+            Must be non-negative.
+        amplitude_sensitivity: Steepness of the sigmoid transition. Only
+            used when *cost_target* is set. Must be strictly positive.
 
     Each of these arguments is also available as an attribute.
 
@@ -288,18 +335,83 @@ class ExtremumSeeker:
         self,
         *,
         gain: float = 0.2,
-        oscillation_size: float = 0.1,
+        oscillation_size: float | NDArray[np.floating] = 0.1,
         oscillation_sampling: int = 10,
         decay_rate: float = 1.0,
+        cost_target: float | None = None,
+        amplitude_min: float = 0.1,
+        amplitude_max: float = 5.0,
+        amplitude_midpoint: float = 0.3,
+        amplitude_sensitivity: float = 7.0,
     ) -> None:
         if gain == 0.0 or not np.isfinite(gain):
             raise ValueError(f"gain must not be zero: {gain}")
         if not 0.0 < decay_rate <= 1.0:
             raise ValueError(f"decay_rate must be between 0 and 1: {decay_rate}")
+        if cost_target is not None:
+            if not np.isfinite(cost_target):
+                raise ValueError(f"cost_target must be finite: {cost_target}")
+            if decay_rate != 1.0:
+                raise ValueError(
+                    "cost_target and a non-default decay_rate cannot both be "
+                    "set: adaptive amplitude replaces the decay schedule"
+                )
+            if not amplitude_min >= 0.0:
+                raise ValueError(
+                    f"amplitude_min must be non-negative: {amplitude_min}"
+                )
+            if not amplitude_max > 0.0:
+                raise ValueError(
+                    f"amplitude_max must be strictly positive: {amplitude_max}"
+                )
+            if not amplitude_max >= amplitude_min:
+                raise ValueError(
+                    f"amplitude_max ({amplitude_max}) must be >= "
+                    f"amplitude_min ({amplitude_min})"
+                )
+            if not amplitude_midpoint >= 0.0:
+                raise ValueError(
+                    f"amplitude_midpoint must be non-negative: {amplitude_midpoint}"
+                )
+            if not amplitude_sensitivity > 0.0:
+                raise ValueError(
+                    "amplitude_sensitivity must be strictly positive: "
+                    f"{amplitude_sensitivity}"
+                )
         self.gain = gain
         self.oscillation_size = oscillation_size
         self.oscillation_sampling = oscillation_sampling
         self.decay_rate = decay_rate
+        self.cost_target = cost_target
+        self.amplitude_min = amplitude_min
+        self.amplitude_max = amplitude_max
+        self.amplitude_midpoint = amplitude_midpoint
+        self.amplitude_sensitivity = amplitude_sensitivity
+
+    def adaptive_amplitude(self, cost: SupportsFloat) -> float:
+        """Compute the adaptive amplitude factor for a given *cost*.
+
+        Returns the result of the sigmoid mapping configured via
+        *cost_target* / *amplitude_min* / *amplitude_max* /
+        *amplitude_midpoint* / *amplitude_sensitivity*.
+
+        Raises:
+            ValueError: if *cost_target* is not set on this seeker.
+        """
+        if self.cost_target is None:
+            raise ValueError(
+                "adaptive_amplitude() requires cost_target to be set on the "
+                "ExtremumSeeker"
+            )
+        error = abs(float(cost) - self.cost_target)
+        sigmoid = 1.0 / (
+            1.0
+            + np.exp(-self.amplitude_sensitivity * (error - self.amplitude_midpoint))
+        )
+        return float(
+            self.amplitude_min
+            + (self.amplitude_max - self.amplitude_min) * sigmoid
+        )
 
     def get_time_step(self) -> float:
         """Calculate the ES time step size.
@@ -391,10 +503,14 @@ class ExtremumSeeker:
             raise ValueError(
                 f"cost is NaN (not a number) after {iteration.nit} ES step(s)"
             )
+        if self.cost_target is not None:
+            next_amplitude = self.adaptive_amplitude(iteration.cost)
+        else:
+            next_amplitude = iteration.amplitude * self.decay_rate
         return Step(
             params=_calc_next_params(self, iteration),
             nit=iteration.nit,
-            amplitude=iteration.amplitude * self.decay_rate,
+            amplitude=next_amplitude,
             bounds=iteration.bounds,
         )
 
@@ -563,9 +679,24 @@ def _calc_next_params(seeker: ExtremumSeeker, data: Iteration) -> NDArray[np.dou
     # Choose frequency different for each dimension without
     # resonance between them.
     dithering_freqs = seeker.get_dithering_freqs(ndim)
+    # Per-dimension or uniform oscillation size — both broadcast cleanly
+    # against the per-dimension `dithering_freqs`. The Lie-bracket
+    # averaging proof for ES only requires distinct dithering
+    # frequencies; per-axis amplitudes are standard.
+    oscillation_size = np.asarray(seeker.oscillation_size, dtype=np.double)
+    if oscillation_size.ndim not in (0, 1):
+        raise ValueError(
+            "oscillation_size must be a scalar or a 1-D array, got "
+            f"shape {oscillation_size.shape}"
+        )
+    if oscillation_size.ndim == 1 and oscillation_size.shape != (ndim,):
+        raise ValueError(
+            f"oscillation_size has wrong shape: expected ({ndim},), "
+            f"found {oscillation_size.shape}"
+        )
     # Choose amplitudes such that integrating over all steps yields
     # an oscillation with amplitude `oscillation_size`.
-    dithering_amplitudes = dithering_freqs * time_step * seeker.oscillation_size
+    dithering_amplitudes = dithering_freqs * time_step * oscillation_size
     dithering_phases = dithering_freqs * time_step * data.nit + seeker.gain * data.cost
     # The actual calculation.
     next_step = dithering_amplitudes * np.cos(dithering_phases)
