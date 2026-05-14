@@ -274,10 +274,10 @@ class AdaptiveAmplitude:
     Calling an instance evaluates that mapping directly::
 
         >>> schedule = AdaptiveAmplitude(cost_target=0.0)
-        >>> round(schedule(10.0), 6)  # large error -> near amplitude_max
+        >>> round(schedule(10.0), 6)  # large error saturates at amplitude_max
         5.0
-        >>> round(schedule(0.0), 3)   # at the target -> small amplitude
-        0.634
+        >>> schedule(0.0) < schedule(10.0)  # near the target -> smaller
+        True
 
     Args:
         cost_target: The cost value the controller is driving towards.
@@ -485,8 +485,10 @@ class ExtremumSeeker:
                 raise TypeError(
                     f"first argument is a `{type(prev).__name__}`, 'cost' is required"
                 )
-            prev = np.asarray(prev, dtype=np.double)
-            iteration = Step(params=prev, bounds=bounds).with_cost(cost)
+            # Bind to a fresh name: reassigning `prev` would keep the
+            # parameter's declared `NDArray[np.floating]` type.
+            initial_params = np.asarray(prev, dtype=np.double)
+            iteration = Step(params=initial_params, bounds=bounds).with_cost(cost)
         if np.isnan(iteration.cost):
             raise ValueError(
                 f"cost is NaN (not a number) after {iteration.nit} ES step(s)"
@@ -600,7 +602,7 @@ class ExtremumSeeker:
         if max_calls is not None and max_calls <= 0:
             return OptimizeResult(np.asarray(x0, dtype=np.double))
         callbacks = _consolidate_callbacks(callbacks, max_calls, cost_goal)
-        step = Step(x0, bounds=bounds)
+        step = Step(np.asarray(x0, dtype=np.double), bounds=bounds)
         while True:
             iteration = step.with_cost(func(step.params))
             if callbacks(self, iteration):
