@@ -13,21 +13,21 @@ Changelog
 Unreleased
 ----------
 
-- ADD: `ExtremumSeeker.oscillation_size` now accepts a per-dimension
-  array of shape :samp:`({ndim},)` in addition to a scalar. The
-  Lie-bracket averaging convergence proof for ES only requires distinct,
-  non-resonant dithering frequencies, not uniform amplitudes, so
-  per-axis amplitudes are theoretically standard. Useful when control
-  parameters have very different physical scales (e.g. millimetres and
-  microradians on the same crystal). The previous scalar behaviour is
-  unchanged.
-- ADD: Adaptive amplitude controlled by a target cost. The new
-  ``cost_target`` constructor parameter, together with ``amplitude_min``,
-  ``amplitude_max``, ``amplitude_midpoint`` and ``amplitude_sensitivity``,
-  configures a sigmoid mapping of :samp:`|cost - cost_target|` onto
-  `Step.amplitude`. When set, this replaces the ``decay_rate`` schedule;
-  setting both together raises `ValueError`. The new public helper
-  `ExtremumSeeker.adaptive_amplitude()` exposes the mapping directly.
+- ADD: The ``oscillation_size`` argument of `ExtremumSeeker` and
+  `optimize()` now accepts a per-dimension array of shape
+  :samp:`({ndim},)` in addition to a scalar. The Lie-bracket averaging
+  convergence proof for ES only requires distinct, non-resonant
+  dithering frequencies, not uniform amplitudes, so per-axis amplitudes
+  are theoretically standard. Useful when control parameters have very
+  different physical scales (e.g. millimetres and microradians on the
+  same crystal). The previous scalar behaviour is unchanged.
+- ADD: `AdaptiveAmplitude`, a configurable schedule that makes
+  `Step.amplitude` track the cost error :samp:`|cost - cost_target|`
+  through a sigmoid mapping instead of the monotonic ``decay_rate``
+  decay. Pass an instance via the new ``adaptive_amplitude`` argument of
+  `ExtremumSeeker` or `optimize()`; passing it together with a
+  non-default ``decay_rate`` raises `ValueError`. `AdaptiveAmplitude` is
+  callable, so it also exposes the mapping directly.
 
 v4.1.0
 ------

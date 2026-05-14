@@ -223,97 +223,105 @@ def test_oscillation_size_nd_array_raises() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Adaptive amplitude (cost_target)
+# Adaptive amplitude (AdaptiveAmplitude)
 # ---------------------------------------------------------------------------
 
 
 def test_adaptive_amplitude_large_error_near_max() -> None:
-    seeker = es.ExtremumSeeker(
+    schedule = es.AdaptiveAmplitude(
         cost_target=0.0,
         amplitude_min=0.1,
         amplitude_max=5.0,
-        amplitude_midpoint=0.3,
-        amplitude_sensitivity=7.0,
+        midpoint=0.3,
+        sensitivity=7.0,
     )
-    # error much larger than midpoint → sigmoid saturates near 1 → amp near max.
-    assert seeker.adaptive_amplitude(10.0) == pytest.approx(5.0, abs=1e-6)
+    # error much larger than midpoint -> sigmoid saturates near 1 -> near max.
+    assert schedule(10.0) == pytest.approx(5.0, abs=1e-6)
 
 
 def test_adaptive_amplitude_small_error_near_min() -> None:
-    seeker = es.ExtremumSeeker(
+    schedule = es.AdaptiveAmplitude(
         cost_target=0.0,
         amplitude_min=0.1,
         amplitude_max=5.0,
-        amplitude_midpoint=10.0,   # midpoint deliberately far above zero
-        amplitude_sensitivity=7.0, # so error=0 sits well below the 50% point
+        midpoint=10.0,  # midpoint deliberately far above zero
+        sensitivity=7.0,  # so error=0 sits well below the 50% point
     )
-    # error << midpoint → sigmoid saturates near 0 → amp near amplitude_min.
-    assert seeker.adaptive_amplitude(0.0) == pytest.approx(0.1, abs=1e-6)
+    # error << midpoint -> sigmoid saturates near 0 -> near amplitude_min.
+    assert schedule(0.0) == pytest.approx(0.1, abs=1e-6)
 
 
 def test_adaptive_amplitude_at_midpoint_is_halfway() -> None:
-    seeker = es.ExtremumSeeker(
+    schedule = es.AdaptiveAmplitude(
         cost_target=0.0,
         amplitude_min=0.0,
         amplitude_max=10.0,
-        amplitude_midpoint=0.5,
-        amplitude_sensitivity=7.0,
+        midpoint=0.5,
+        sensitivity=7.0,
     )
-    # |cost - target| == midpoint → sigmoid = 0.5 → amp = (min + max)/2.
-    assert seeker.adaptive_amplitude(0.5) == pytest.approx(5.0, abs=1e-6)
+    # |cost - target| == midpoint -> sigmoid = 0.5 -> amp = (min + max)/2.
+    assert schedule(0.5) == pytest.approx(5.0, abs=1e-6)
 
 
 def test_adaptive_amplitude_drives_step_amplitude() -> None:
     """calc_next_step assigns the adaptive amplitude to the next Step."""
-    seeker = es.ExtremumSeeker(
+    schedule = es.AdaptiveAmplitude(
         cost_target=0.0,
         amplitude_min=0.1,
         amplitude_max=5.0,
-        amplitude_midpoint=0.3,
-        amplitude_sensitivity=7.0,
+        midpoint=0.3,
+        sensitivity=7.0,
     )
+    seeker = es.ExtremumSeeker(adaptive_amplitude=schedule)
     step = seeker.calc_next_step(np.zeros(2), cost=10.0)
-    assert step.amplitude == pytest.approx(seeker.adaptive_amplitude(10.0))
+    assert step.amplitude == pytest.approx(schedule(10.0))
     # And a low-error cost yields a small amplitude.
     step = seeker.calc_next_step(step, cost=0.0)
-    assert step.amplitude == pytest.approx(seeker.adaptive_amplitude(0.0))
-
-
-def test_adaptive_amplitude_without_cost_target_raises() -> None:
-    seeker = es.ExtremumSeeker()
-    with pytest.raises(ValueError, match="cost_target to be set"):
-        seeker.adaptive_amplitude(0.0)
+    assert step.amplitude == pytest.approx(schedule(0.0))
 
 
 @pytest.mark.parametrize(
     ("kwargs", "match"),
     [
         ({"cost_target": np.nan}, "cost_target must be finite"),
-        ({"cost_target": 0.0, "decay_rate": 0.5}, "non-default decay_rate"),
         ({"cost_target": 0.0, "amplitude_min": -1.0}, "amplitude_min"),
-        ({"cost_target": 0.0, "amplitude_max": 0.0}, "amplitude_max must be strictly positive"),
-        ({"cost_target": 0.0, "amplitude_min": 1.0, "amplitude_max": 0.5}, "must be >="),
-        ({"cost_target": 0.0, "amplitude_midpoint": -1.0}, "amplitude_midpoint"),
-        ({"cost_target": 0.0, "amplitude_sensitivity": 0.0}, "amplitude_sensitivity"),
+        (
+            {"cost_target": 0.0, "amplitude_max": 0.0},
+            "amplitude_max must be strictly positive",
+        ),
+        (
+            {"cost_target": 0.0, "amplitude_min": 1.0, "amplitude_max": 0.5},
+            "must be >=",
+        ),
+        ({"cost_target": 0.0, "midpoint": -1.0}, "midpoint"),
+        ({"cost_target": 0.0, "sensitivity": 0.0}, "sensitivity"),
     ],
 )
 def test_adaptive_amplitude_bad_config(kwargs: dict, match: str) -> None:
     with pytest.raises(ValueError, match=match):
-        es.ExtremumSeeker(**kwargs)
+        es.AdaptiveAmplitude(**kwargs)
 
 
-def test_cost_target_disables_decay() -> None:
-    """When cost_target is set, decay_rate is ignored — amplitude is recomputed."""
-    seeker = es.ExtremumSeeker(
+def test_adaptive_amplitude_with_decay_rate_raises() -> None:
+    schedule = es.AdaptiveAmplitude(cost_target=0.0)
+    with pytest.raises(ValueError, match="non-default decay_rate"):
+        es.ExtremumSeeker(adaptive_amplitude=schedule, decay_rate=0.5)
+
+
+def test_adaptive_amplitude_disables_decay() -> None:
+    """With an AdaptiveAmplitude schedule, decay_rate plays no role."""
+    # amplitude_min == amplitude_max collapses the schedule to a constant.
+    schedule = es.AdaptiveAmplitude(
         cost_target=0.0,
         amplitude_min=0.5,
-        amplitude_max=0.5,  # collapse: adaptive amp is always 0.5.
-        amplitude_midpoint=1.0,
-        amplitude_sensitivity=1.0,
+        amplitude_max=0.5,
+        midpoint=1.0,
+        sensitivity=1.0,
     )
+    seeker = es.ExtremumSeeker(adaptive_amplitude=schedule)
     step = seeker.calc_next_step(np.zeros(2), cost=2.0)
     assert step.amplitude == pytest.approx(0.5)
-    # Even after many steps, amplitude stays at adaptive value (no decay).
+    # Even after many steps, amplitude stays at the adaptive value (no decay).
     for _ in range(10):
         step = seeker.calc_next_step(step, cost=2.0)
     assert step.amplitude == pytest.approx(0.5)

@@ -42,6 +42,7 @@ if TYPE_CHECKING:
         from typing import TypeAlias
 
 __all__ = (
+    "AdaptiveAmplitude",
     "Bounds",
     "Callback",
     "ExtremumSeeker",
@@ -67,11 +68,7 @@ def optimize(
     oscillation_size: float | NDArray[np.floating] = 0.1,
     oscillation_sampling: int = 10,
     decay_rate: float = 1.0,
-    cost_target: float | None = None,
-    amplitude_min: float = 0.1,
-    amplitude_max: float = 5.0,
-    amplitude_midpoint: float = 0.3,
-    amplitude_sensitivity: float = 7.0,
+    adaptive_amplitude: AdaptiveAmplitude | None = None,
 ) -> OptimizeResult:
     """Run an optimization loop using ES.
 
@@ -102,15 +99,11 @@ def optimize(
         oscillation_sampling: Number of sampling points per dithering
             oscillation period. Larger values mean smaller time steps.
         decay_rate: An optional factor between 0 and 1 that reduces the
-            *oscillation_size* after each step. Ignored if *cost_target*
-            is set.
-        cost_target: If given, enables adaptive amplitude — see
-            `ExtremumSeeker` for the full schedule.
-        amplitude_min: Lower bound of the adaptive amplitude.
-        amplitude_max: Upper bound of the adaptive amplitude.
-        amplitude_midpoint: Cost-error value at which the sigmoid is at
-            its 50% point.
-        amplitude_sensitivity: Steepness of the sigmoid transition.
+            *oscillation_size* after each step. Ignored if
+            *adaptive_amplitude* is given.
+        adaptive_amplitude: If given, an `AdaptiveAmplitude` schedule
+            that makes `Step.amplitude` track the cost error instead of
+            following *decay_rate*. See `AdaptiveAmplitude` for details.
 
     Returns:
         Only guaranteed to return if you pass *max_calls*. Otherwise it
@@ -137,11 +130,7 @@ def optimize(
         oscillation_size=oscillation_size,
         oscillation_sampling=oscillation_sampling,
         gain=gain,
-        cost_target=cost_target,
-        amplitude_min=amplitude_min,
-        amplitude_max=amplitude_max,
-        amplitude_midpoint=amplitude_midpoint,
-        amplitude_sensitivity=amplitude_sensitivity,
+        adaptive_amplitude=adaptive_amplitude,
     )
     return seeker.optimize(
         func=func,
@@ -271,6 +260,77 @@ class Iteration:
     parameters will be clipped to this space."""
 
 
+@dataclass(frozen=True)
+class AdaptiveAmplitude:
+    """Cost-target-driven schedule for `Step.amplitude`.
+
+    Pass an instance to `ExtremumSeeker` (or `optimize()`) to make the
+    dithering amplitude adapt to how far the cost is from a target,
+    instead of following the monotonic *decay_rate* schedule. The
+    amplitude is large while the cost error is large and shrinks towards
+    *amplitude_min* as the cost approaches *cost_target*, following a
+    sigmoid of the cost error :samp:`|cost - cost_target|`.
+
+    Calling an instance evaluates that mapping directly::
+
+        >>> schedule = AdaptiveAmplitude(cost_target=0.0)
+        >>> round(schedule(10.0), 6)  # large error -> near amplitude_max
+        5.0
+        >>> round(schedule(0.0), 3)   # at the target -> small amplitude
+        0.634
+
+    Args:
+        cost_target: The cost value the controller is driving towards.
+            Must be finite.
+        amplitude_min: Lower bound of the adaptive amplitude. Must be
+            non-negative; zero is permitted and means the dithering
+            vanishes asymptotically as the cost approaches the target.
+        amplitude_max: Upper bound of the adaptive amplitude. Must be
+            strictly positive and satisfy
+            :samp:`amplitude_max >= amplitude_min`.
+        midpoint: The cost-error value at which the sigmoid reaches its
+            50% point. Must be non-negative.
+        sensitivity: Steepness of the sigmoid transition. Must be
+            strictly positive.
+    """
+
+    cost_target: float
+    amplitude_min: float = 0.1
+    amplitude_max: float = 5.0
+    midpoint: float = 0.3
+    sensitivity: float = 7.0
+
+    def __post_init__(self) -> None:
+        if not np.isfinite(self.cost_target):
+            raise ValueError(f"cost_target must be finite: {self.cost_target}")
+        if self.amplitude_min < 0.0:
+            raise ValueError(
+                f"amplitude_min must be non-negative: {self.amplitude_min}"
+            )
+        if self.amplitude_max <= 0.0:
+            raise ValueError(
+                f"amplitude_max must be strictly positive: {self.amplitude_max}"
+            )
+        if self.amplitude_max < self.amplitude_min:
+            raise ValueError(
+                f"amplitude_max ({self.amplitude_max}) must be >= "
+                f"amplitude_min ({self.amplitude_min})"
+            )
+        if self.midpoint < 0.0:
+            raise ValueError(f"midpoint must be non-negative: {self.midpoint}")
+        if self.sensitivity <= 0.0:
+            raise ValueError(
+                f"sensitivity must be strictly positive: {self.sensitivity}"
+            )
+
+    def __call__(self, cost: SupportsFloat) -> float:
+        """Map a *cost* onto an amplitude via the configured sigmoid."""
+        error = abs(float(cost) - self.cost_target)
+        sigmoid = 1.0 / (1.0 + np.exp(-self.sensitivity * (error - self.midpoint)))
+        span = self.amplitude_max - self.amplitude_min
+        return float(self.amplitude_min + span * sigmoid)
+
+
 class ExtremumSeeker:
     """Extremum-seeking controller.
 
@@ -293,27 +353,13 @@ class ExtremumSeeker:
         oscillation_sampling: The number of sampling points per dithering
             oscillation period. Larger values mean smaller time steps.
         decay_rate: An optional factor between 0 and 1 that reduces the
-            *oscillation_size* after each step. Ignored if *cost_target*
-            is set (see below).
-        cost_target: If given, the controller computes `Step.amplitude`
-            adaptively from the cost error :samp:`|cost - cost_target|`
-            using a sigmoid mapping, instead of decaying it. Large errors
-            yield amplitudes close to *amplitude_max*; small errors
-            shrink the amplitude towards *amplitude_min*. Setting this
+            *oscillation_size* after each step. Ignored if
+            *adaptive_amplitude* is given.
+        adaptive_amplitude: If given, an `AdaptiveAmplitude` schedule
+            that makes `Step.amplitude` track the cost error instead of
+            following the monotonic *decay_rate* schedule. Passing this
             together with a non-default *decay_rate* is a configuration
             error and raises `ValueError`.
-        amplitude_min: Lower bound of the adaptive amplitude. Only used
-            when *cost_target* is set. Must be non-negative; zero is
-            permitted and means the dithering vanishes asymptotically as
-            the cost approaches the target.
-        amplitude_max: Upper bound of the adaptive amplitude. Only used
-            when *cost_target* is set. Must be strictly positive and
-            satisfy :samp:`amplitude_max >= amplitude_min`.
-        amplitude_midpoint: The cost-error value at which the sigmoid
-            reaches its 50% point. Only used when *cost_target* is set.
-            Must be non-negative.
-        amplitude_sensitivity: Steepness of the sigmoid transition. Only
-            used when *cost_target* is set. Must be strictly positive.
 
     Each of these arguments is also available as an attribute.
 
@@ -338,80 +384,22 @@ class ExtremumSeeker:
         oscillation_size: float | NDArray[np.floating] = 0.1,
         oscillation_sampling: int = 10,
         decay_rate: float = 1.0,
-        cost_target: float | None = None,
-        amplitude_min: float = 0.1,
-        amplitude_max: float = 5.0,
-        amplitude_midpoint: float = 0.3,
-        amplitude_sensitivity: float = 7.0,
+        adaptive_amplitude: AdaptiveAmplitude | None = None,
     ) -> None:
         if gain == 0.0 or not np.isfinite(gain):
             raise ValueError(f"gain must not be zero: {gain}")
         if not 0.0 < decay_rate <= 1.0:
             raise ValueError(f"decay_rate must be between 0 and 1: {decay_rate}")
-        if cost_target is not None:
-            if not np.isfinite(cost_target):
-                raise ValueError(f"cost_target must be finite: {cost_target}")
-            if decay_rate != 1.0:
-                raise ValueError(
-                    "cost_target and a non-default decay_rate cannot both be "
-                    "set: adaptive amplitude replaces the decay schedule"
-                )
-            if not amplitude_min >= 0.0:
-                raise ValueError(
-                    f"amplitude_min must be non-negative: {amplitude_min}"
-                )
-            if not amplitude_max > 0.0:
-                raise ValueError(
-                    f"amplitude_max must be strictly positive: {amplitude_max}"
-                )
-            if not amplitude_max >= amplitude_min:
-                raise ValueError(
-                    f"amplitude_max ({amplitude_max}) must be >= "
-                    f"amplitude_min ({amplitude_min})"
-                )
-            if not amplitude_midpoint >= 0.0:
-                raise ValueError(
-                    f"amplitude_midpoint must be non-negative: {amplitude_midpoint}"
-                )
-            if not amplitude_sensitivity > 0.0:
-                raise ValueError(
-                    "amplitude_sensitivity must be strictly positive: "
-                    f"{amplitude_sensitivity}"
-                )
+        if adaptive_amplitude is not None and decay_rate != 1.0:
+            raise ValueError(
+                "adaptive_amplitude and a non-default decay_rate cannot both "
+                "be set: the adaptive schedule replaces the decay schedule"
+            )
         self.gain = gain
         self.oscillation_size = oscillation_size
         self.oscillation_sampling = oscillation_sampling
         self.decay_rate = decay_rate
-        self.cost_target = cost_target
-        self.amplitude_min = amplitude_min
-        self.amplitude_max = amplitude_max
-        self.amplitude_midpoint = amplitude_midpoint
-        self.amplitude_sensitivity = amplitude_sensitivity
-
-    def adaptive_amplitude(self, cost: SupportsFloat) -> float:
-        """Compute the adaptive amplitude factor for a given *cost*.
-
-        Returns the result of the sigmoid mapping configured via
-        *cost_target* / *amplitude_min* / *amplitude_max* /
-        *amplitude_midpoint* / *amplitude_sensitivity*.
-
-        Raises:
-            ValueError: if *cost_target* is not set on this seeker.
-        """
-        if self.cost_target is None:
-            raise ValueError(
-                "adaptive_amplitude() requires cost_target to be set on the "
-                "ExtremumSeeker"
-            )
-        error = abs(float(cost) - self.cost_target)
-        sigmoid = 1.0 / (
-            1.0
-            + np.exp(-self.amplitude_sensitivity * (error - self.amplitude_midpoint))
-        )
-        return float(
-            self.amplitude_min
-            + (self.amplitude_max - self.amplitude_min) * sigmoid
-        )
+        self.adaptive_amplitude = adaptive_amplitude
 
     def get_time_step(self) -> float:
         """Calculate the ES time step size.
@@ -503,7 +491,7 @@ class ExtremumSeeker:
             raise ValueError(
                 f"cost is NaN (not a number) after {iteration.nit} ES step(s)"
             )
-        if self.cost_target is not None:
+        if self.adaptive_amplitude is not None:
             next_amplitude = self.adaptive_amplitude(iteration.cost)
         else:
             next_amplitude = iteration.amplitude * self.decay_rate
