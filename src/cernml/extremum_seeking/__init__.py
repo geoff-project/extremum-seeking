@@ -42,6 +42,7 @@ if TYPE_CHECKING:
         from typing import TypeAlias
 
 __all__ = (
+    "AdaptiveAmplitude",
     "Bounds",
     "Callback",
     "ExtremumSeeker",
@@ -64,9 +65,10 @@ def optimize(
     callbacks: Callback | Iterable[Callback] = (),
     bounds: Bounds | None = None,
     gain: float = 0.2,
-    oscillation_size: float = 0.1,
+    oscillation_size: float | NDArray[np.floating] = 0.1,
     oscillation_sampling: int = 10,
     decay_rate: float = 1.0,
+    adaptive_amplitude: AdaptiveAmplitude | None = None,
 ) -> OptimizeResult:
     """Run an optimization loop using ES.
 
@@ -91,11 +93,17 @@ def optimize(
             positive (the default), the controller minimizes the cost
             function; if negative, the controller maximizes it.
         oscillation_size: Amplitude of the dithering oscillations if the
-            cost were held constant.
+            cost were held constant. Accepts either a scalar or an array
+            of shape :samp:`({ndim},)` for per-parameter amplitudes — see
+            `ExtremumSeeker` for details.
         oscillation_sampling: Number of sampling points per dithering
             oscillation period. Larger values mean smaller time steps.
         decay_rate: An optional factor between 0 and 1 that reduces the
-            *oscillation_size* after each step.
+            *oscillation_size* after each step. Ignored if
+            *adaptive_amplitude* is given.
+        adaptive_amplitude: If given, an `AdaptiveAmplitude` schedule
+            that makes `Step.amplitude` track the cost error instead of
+            following *decay_rate*. See `AdaptiveAmplitude` for details.
 
     Returns:
         Only guaranteed to return if you pass *max_calls*. Otherwise it
@@ -122,6 +130,7 @@ def optimize(
         oscillation_size=oscillation_size,
         oscillation_sampling=oscillation_sampling,
         gain=gain,
+        adaptive_amplitude=adaptive_amplitude,
     )
     return seeker.optimize(
         func=func,
@@ -251,6 +260,77 @@ class Iteration:
     parameters will be clipped to this space."""
 
 
+@dataclass(frozen=True)
+class AdaptiveAmplitude:
+    """Cost-target-driven schedule for `Step.amplitude`.
+
+    Pass an instance to `ExtremumSeeker` (or `optimize()`) to make the
+    dithering amplitude adapt to how far the cost is from a target,
+    instead of following the monotonic *decay_rate* schedule. The
+    amplitude is large while the cost error is large and shrinks towards
+    *amplitude_min* as the cost approaches *cost_target*, following a
+    sigmoid of the cost error :samp:`|cost - cost_target|`.
+
+    Calling an instance evaluates that mapping directly::
+
+        >>> schedule = AdaptiveAmplitude(cost_target=0.0)
+        >>> round(schedule(10.0), 6)  # large error saturates at amplitude_max
+        5.0
+        >>> schedule(0.0) < schedule(10.0)  # near the target -> smaller
+        True
+
+    Args:
+        cost_target: The cost value the controller is driving towards.
+            Must be finite.
+        amplitude_min: Lower bound of the adaptive amplitude. Must be
+            non-negative; zero is permitted and means the dithering
+            vanishes asymptotically as the cost approaches the target.
+        amplitude_max: Upper bound of the adaptive amplitude. Must be
+            strictly positive and satisfy
+            :samp:`amplitude_max >= amplitude_min`.
+        midpoint: The cost-error value at which the sigmoid reaches its
+            50% point. Must be non-negative.
+        sensitivity: Steepness of the sigmoid transition. Must be
+            strictly positive.
+    """
+
+    cost_target: float
+    amplitude_min: float = 0.1
+    amplitude_max: float = 5.0
+    midpoint: float = 0.3
+    sensitivity: float = 7.0
+
+    def __post_init__(self) -> None:
+        if not np.isfinite(self.cost_target):
+            raise ValueError(f"cost_target must be finite: {self.cost_target}")
+        if self.amplitude_min < 0.0:
+            raise ValueError(
+                f"amplitude_min must be non-negative: {self.amplitude_min}"
+            )
+        if self.amplitude_max <= 0.0:
+            raise ValueError(
+                f"amplitude_max must be strictly positive: {self.amplitude_max}"
+            )
+        if self.amplitude_max < self.amplitude_min:
+            raise ValueError(
+                f"amplitude_max ({self.amplitude_max}) must be >= "
+                f"amplitude_min ({self.amplitude_min})"
+            )
+        if self.midpoint < 0.0:
+            raise ValueError(f"midpoint must be non-negative: {self.midpoint}")
+        if self.sensitivity <= 0.0:
+            raise ValueError(
+                f"sensitivity must be strictly positive: {self.sensitivity}"
+            )
+
+    def __call__(self, cost: SupportsFloat) -> float:
+        """Map a *cost* onto an amplitude via the configured sigmoid."""
+        error = abs(float(cost) - self.cost_target)
+        sigmoid = 1.0 / (1.0 + np.exp(-self.sensitivity * (error - self.midpoint)))
+        span = self.amplitude_max - self.amplitude_min
+        return float(self.amplitude_min + span * sigmoid)
+
+
 class ExtremumSeeker:
     """Extremum-seeking controller.
 
@@ -262,11 +342,24 @@ class ExtremumSeeker:
             If positive (the default), the controller minimizes the cost
             function; if negative, the controller maximizes it.
         oscillation_size: The amplitude of the dithering oscillations if
-            the cost were held constant.
+            the cost were held constant. Accepts either a scalar (the
+            same amplitude across all parameters) or an array-like of
+            shape :samp:`({ndim},)` for per-parameter amplitudes. The
+            per-parameter form is theoretically standard for ES — the
+            Lie-bracket averaging convergence proof requires only
+            distinct, non-resonant dithering frequencies, not uniform
+            amplitudes — and is useful when parameters have very
+            different physical scales.
         oscillation_sampling: The number of sampling points per dithering
             oscillation period. Larger values mean smaller time steps.
         decay_rate: An optional factor between 0 and 1 that reduces the
-            *oscillation_size* after each step.
+            *oscillation_size* after each step. Ignored if
+            *adaptive_amplitude* is given.
+        adaptive_amplitude: If given, an `AdaptiveAmplitude` schedule
+            that makes `Step.amplitude` track the cost error instead of
+            following the monotonic *decay_rate* schedule. Passing this
+            together with a non-default *decay_rate* is a configuration
+            error and raises `ValueError`.
 
     Each of these arguments is also available as an attribute.
 
@@ -288,18 +381,25 @@ class ExtremumSeeker:
         self,
         *,
         gain: float = 0.2,
-        oscillation_size: float = 0.1,
+        oscillation_size: float | NDArray[np.floating] = 0.1,
         oscillation_sampling: int = 10,
         decay_rate: float = 1.0,
+        adaptive_amplitude: AdaptiveAmplitude | None = None,
     ) -> None:
         if gain == 0.0 or not np.isfinite(gain):
             raise ValueError(f"gain must not be zero: {gain}")
         if not 0.0 < decay_rate <= 1.0:
             raise ValueError(f"decay_rate must be between 0 and 1: {decay_rate}")
+        if adaptive_amplitude is not None and decay_rate != 1.0:
+            raise ValueError(
+                "adaptive_amplitude and a non-default decay_rate cannot both "
+                "be set: the adaptive schedule replaces the decay schedule"
+            )
         self.gain = gain
         self.oscillation_size = oscillation_size
         self.oscillation_sampling = oscillation_sampling
         self.decay_rate = decay_rate
+        self.adaptive_amplitude = adaptive_amplitude
 
     def get_time_step(self) -> float:
         """Calculate the ES time step size.
@@ -385,16 +485,22 @@ class ExtremumSeeker:
                 raise TypeError(
                     f"first argument is a `{type(prev).__name__}`, 'cost' is required"
                 )
-            prev = np.asarray(prev, dtype=np.double)
-            iteration = Step(params=prev, bounds=bounds).with_cost(cost)
+            # Bind to a fresh name: reassigning `prev` would keep the
+            # parameter's declared `NDArray[np.floating]` type.
+            initial_params = np.asarray(prev, dtype=np.double)
+            iteration = Step(params=initial_params, bounds=bounds).with_cost(cost)
         if np.isnan(iteration.cost):
             raise ValueError(
                 f"cost is NaN (not a number) after {iteration.nit} ES step(s)"
             )
+        if self.adaptive_amplitude is not None:
+            next_amplitude = self.adaptive_amplitude(iteration.cost)
+        else:
+            next_amplitude = iteration.amplitude * self.decay_rate
         return Step(
             params=_calc_next_params(self, iteration),
             nit=iteration.nit,
-            amplitude=iteration.amplitude * self.decay_rate,
+            amplitude=next_amplitude,
             bounds=iteration.bounds,
         )
 
@@ -496,7 +602,7 @@ class ExtremumSeeker:
         if max_calls is not None and max_calls <= 0:
             return OptimizeResult(np.asarray(x0, dtype=np.double))
         callbacks = _consolidate_callbacks(callbacks, max_calls, cost_goal)
-        step = Step(x0, bounds=bounds)
+        step = Step(np.asarray(x0, dtype=np.double), bounds=bounds)
         while True:
             iteration = step.with_cost(func(step.params))
             if callbacks(self, iteration):
@@ -563,9 +669,24 @@ def _calc_next_params(seeker: ExtremumSeeker, data: Iteration) -> NDArray[np.dou
     # Choose frequency different for each dimension without
     # resonance between them.
     dithering_freqs = seeker.get_dithering_freqs(ndim)
+    # Per-dimension or uniform oscillation size — both broadcast cleanly
+    # against the per-dimension `dithering_freqs`. The Lie-bracket
+    # averaging proof for ES only requires distinct dithering
+    # frequencies; per-axis amplitudes are standard.
+    oscillation_size = np.asarray(seeker.oscillation_size, dtype=np.double)
+    if oscillation_size.ndim not in (0, 1):
+        raise ValueError(
+            "oscillation_size must be a scalar or a 1-D array, got "
+            f"shape {oscillation_size.shape}"
+        )
+    if oscillation_size.ndim == 1 and oscillation_size.shape != (ndim,):
+        raise ValueError(
+            f"oscillation_size has wrong shape: expected ({ndim},), "
+            f"found {oscillation_size.shape}"
+        )
     # Choose amplitudes such that integrating over all steps yields
     # an oscillation with amplitude `oscillation_size`.
-    dithering_amplitudes = dithering_freqs * time_step * seeker.oscillation_size
+    dithering_amplitudes = dithering_freqs * time_step * oscillation_size
     dithering_phases = dithering_freqs * time_step * data.nit + seeker.gain * data.cost
     # The actual calculation.
     next_step = dithering_amplitudes * np.cos(dithering_phases)
