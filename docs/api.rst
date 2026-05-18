@@ -30,6 +30,8 @@ Class-based API
 
 .. autoclass:: ExtremumSeeker
 
+.. autoclass:: AdaptiveAmplitude()
+
 Helper Types
 ------------
 
