@@ -50,7 +50,7 @@ ROOTDIR = pathlib.Path(__file__).absolute().parent.parent
 project = "cernml-extremum-seeking"
 dist = metadata.distribution(project)
 
-copyright = "2020–2025 CERN, 2023-2025 GSI Helmholtzzentrum für Schwerionenforschung"
+copyright = "2020–2026 CERN, 2023-2026 GSI Helmholtzzentrum für Schwerionenforschung"
 author = "Penny Madysa"
 release = dist.version
 version = release.partition("+")[0]
