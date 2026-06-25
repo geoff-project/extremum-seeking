@@ -76,7 +76,7 @@ def main() -> None:
     plt.xlabel("Step")
     plt.ylabel("Distance")
     plt.title("Progress")
-    plt.ylim(0.0, np.linalg.norm([10.0, 10.0]))
+    plt.ylim(0.0, float(np.linalg.norm([10.0, 10.0])))
     plt.tight_layout()
 
     # Main loop!

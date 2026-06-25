@@ -166,4 +166,5 @@ disable = [
     'fixme',
     'line-too-long',
     'too-many-arguments',
+    'invalid-name',
 ]
