@@ -71,8 +71,12 @@ lint = [
 ]
 
 [project.urls]
-gitlab = 'https://gitlab.cern.ch/geoff/optimizers/cernml-extremum-seeking'
-wiki = 'https://wikis.cern.ch/pages/viewpage.action?pageId=194741479'
+'Homepage' = 'https://geoff.docs.cern.ch/'
+'Download' = 'https://gitlab.cern.ch/geoff/optimizers/cernml-extremum-seeking/-/releases'
+'Documentation' = 'https://geoff/optimizers.docs.cern.ch/cernml-extremum-seeking/'
+'Internal Documentation Mirror' = 'https://acc-py.web.cern.ch/gitlab/geoff/optimizers/cernml-extremum-seeking/'
+'Source Code' = 'https://gitlab.cern.ch/geoff/optimizers/cernml-extremum-seeking'
+'Bug Tracker' = 'https://gitlab.cern.ch/geoff/optimizers/cernml-extremum-seeking/-/work_items'
 
 [tool.setuptools]
 zip-safe = true

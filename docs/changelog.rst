@@ -13,6 +13,15 @@ Changelog
 Unreleased
 ----------
 
+v4.2.1
+------
+
+- OTHER: Update project links to point at the new website https://geoff.docs.cern.ch/.
+- OTHER: The package is now released on PyPI.
+
+v4.2.0
+------
+
 - ADD: The ``oscillation_size`` argument of `ExtremumSeeker` and
   `optimize()` now accepts a per-dimension array of shape
   :samp:`({ndim},)` in addition to a scalar. The Lie-bracket averaging
