@@ -4,6 +4,8 @@
 ..
 .. SPDX-License-Identifier: GPL-3.0-or-later OR EUPL-1.2+
 
+:tocdepth: 3
+
 Changelog
 =========
 
@@ -12,91 +14,136 @@ Changelog
 Unreleased
 ----------
 
-v4.2.1
-------
+v4.2.2
+^^^^^^
 
-- OTHER: Update project links to point at the new website https://geoff.docs.cern.ch/.
-- OTHER: The package is now released on PyPI.
+Other changes
+~~~~~~~~~~~~~
+- Harmonize docs theme of Geoff packages.
+
+
+v4.x
+----
+
+v4.2.1
+^^^^^^
+
+Other changes
+~~~~~~~~~~~~~
+- Update project links to point at the new website https://geoff.docs.cern.ch/.
+- The package is now released on PyPI.
 
 v4.2.0
-------
+^^^^^^
 
-- ADD: The ``oscillation_size`` argument of `ExtremumSeeker` and
-  `optimize()` now accepts a per-dimension array of shape
-  :samp:`({ndim},)` in addition to a scalar. The Lie-bracket averaging
-  convergence proof for ES only requires distinct, non-resonant
-  dithering frequencies, not uniform amplitudes, so per-axis amplitudes
-  are theoretically standard. Useful when control parameters have very
-  different physical scales (e.g. millimetres and microradians on the
-  same crystal). The previous scalar behaviour is unchanged.
-- ADD: `AdaptiveAmplitude`, a configurable schedule that makes
-  `Step.amplitude` track the cost error :samp:`|cost - cost_target|`
-  through a sigmoid mapping instead of the monotonic ``decay_rate``
-  decay. Pass an instance via the new ``adaptive_amplitude`` argument of
-  `ExtremumSeeker` or `optimize()`; passing it together with a
-  non-default ``decay_rate`` raises `ValueError`. `AdaptiveAmplitude` is
-  callable, so it also exposes the mapping directly.
+Additions
+~~~~~~~~~
+- The ``oscillation_size`` argument of `ExtremumSeeker` and `optimize()` now accepts a per-dimension array of shape :samp:`({ndim},)` in addition to a scalar.
+- `AdaptiveAmplitude`, a configurable schedule that makes `Step.amplitude` track the cost error :samp:`|cost - cost_target|` instead of the monotonic ``decay_rate`` decay. Pass an instance via the new ``adaptive_amplitude`` argument of `ExtremumSeeker` or `optimize()`.
 
 v4.1.0
-------
+^^^^^^
 
-- ADD: Compatibility with NumPy 2.0.
-- FIX: Missing argument in docs for `ExtremumSeeker.optimize()`.
-- FIX: To avoid confusion, `.make_generator()` and `.calc_next_step()` now return `Step` objects *without* a *cost* attribute. Callbacks continue to receive the full `.Iteration` objects.
-- FIX: The :term:`generator` returned by `.make_generator()` now returns a distinct `Step` object from each step.
-- FIX: The *cost* attribute of `Iteration` objects yielded by `.make_generator()` is always `~numpy.nan`.
-- OTHER: Update :doc:`COI example </examples/coi_example>` to :doc:`cernml-coi <coi:index>` 0.9.
-- OTHER: Move :doc:`/usage` into a dedicated section.
+Additions
+~~~~~~~~~
+- Compatibility with NumPy 2.0.
+
+Bug fixes
+~~~~~~~~~
+- Missing argument in docs for `ExtremumSeeker.optimize()`.
+- To avoid confusion, `.make_generator()` and `.calc_next_step()` now return `Step` objects *without* a *cost* attribute. Callbacks continue to receive the full `.Iteration` objects.
+- The :term:`generator` returned by `.make_generator()` now returns a distinct `Step` object from each step.
+- The *cost* attribute of `Iteration` objects yielded by `.make_generator()` is always `~numpy.nan`.
+
+Other changes
+~~~~~~~~~~~~~
+- Update :doc:`COI example </examples/coi_example>` to :doc:`cernml-coi <coi:index>` 0.9.
+- Move :doc:`/usage` into a dedicated section.
 
 v4.0.0
-------
+^^^^^^
 
-- BREAKING: Drop support for Python 3.7 and 3.8.
-- BREAKING: Increase required NumPy version to 1.23.
-- ADD: Where possible, functions now accept `typing.SupportsFloat` instead of
-  `float`.
+Breaking changes
+~~~~~~~~~~~~~~~~
+- Drop support for Python 3.7 and 3.8.
+- Increase required NumPy version to 1.23.
+
+Additions
+~~~~~~~~~
+- Where possible, functions now accept `typing.SupportsFloat` instead of `float`.
+
+v3.x
+----
 
 v3.0.3
-------
+^^^^^^
 
-- FIX: Build both stable and development docs on Python 3.9.
+Bug fixes
+~~~~~~~~~
+- Build both stable and development docs on Python 3.9.
 
 v3.0.2
-------
+^^^^^^
 
-- ADD: Publish this documentation.
+Additions
+~~~~~~~~~
+- Publish this documentation.
 
 v3.0.1
-------
+^^^^^^
 
-- OTHER: Start using `pre-commit <https://pre-commit.com/>`_.
-- OTHER: Open-source the package by adding license information.
-- OTHER: Extend :file:`README.md`, fix broken link.
-- OTHER: Improve Mypy namespace package detection.
-- OTHER: Shorten :file:`.gitignore` file.
+Other changes
+~~~~~~~~~~~~~
+- Start using `pre-commit <https://pre-commit.com/>`_.
+- Open-source the package by adding license information.
+- Extend :file:`README.md`, fix broken link.
+- Improve Mypy namespace package detection.
+- Shorten :file:`.gitignore` file.
 
 v3.0.0
-------
+^^^^^^
 
-- BREAKING: When printing an `OptimizeResult`, the scalars ``cost`` and ``nit`` now also honor :external+np:func:`numpy.set_printoptions()`.
-- ADD: Support for Python 3.9.
-- OTHER: Change project URL.
-- OTHER: Replace :file:`setup.cfg` with :file:`pyproject.toml`
+Breaking changes
+~~~~~~~~~~~~~~~~
+- When printing an `OptimizeResult`, the scalars ``cost`` and ``nit`` now also honor :external+np:func:`numpy.set_printoptions()`.
+
+Additions
+~~~~~~~~~
+- Support for Python 3.9.
+
+Other changes
+~~~~~~~~~~~~~
+- Change project URL.
+- Replace :file:`setup.cfg` with :file:`pyproject.toml`
+
+v2.x
+----
 
 v2.0.0
-------
+^^^^^^
 
-- BREAKING: Change arguments passed to `Callback` from ``(ExtremumSeeker, ndarray, float)`` to ``(ExtremumSeeker, Iteration)``, where the latter contains the arguments that it replaces and some more information.
-- BREAKING: Change signature of `~ExtremumSeeker.calc_next_step()` and `~ExtremumSeeker.make_generator()` to yield new type `Iteration` instead of bare arrays.
-- BREAKING: Remove enum ``OptimizationStatus``
-- BREAKING: Remove attributes/properties ``status``, ``success`` and ``message`` from `OptimizeResult`
-- BREAKING: Rename `OptimizeResult` attribute ``x`` to ``params`` and ``fun`` to ``cost``.
-- ADD: type alias `Bounds`
-- ADD: dataclass `Iteration` to pass more information back and forth
-- FIX: Tweak the precise timing of callbacks and loop termination, ensure that ``params`` and ``cost`` are always in-sync.
-- FIX: Remove `~typing.NoReturn` from `optimize()` signature since it ignores the impact of callbacks.
+Breaking changes
+~~~~~~~~~~~~~~~~
+- Change arguments passed to `Callback` from ``(ExtremumSeeker, ndarray, float)`` to ``(ExtremumSeeker, Iteration)``, where the latter contains the arguments that it replaces and some more information.
+- Change signature of `~ExtremumSeeker.calc_next_step()` and `~ExtremumSeeker.make_generator()` to yield new type `Iteration` instead of bare arrays.
+- Remove enum ``OptimizationStatus``
+- Remove attributes/properties ``status``, ``success`` and ``message`` from `OptimizeResult`
+- Rename `OptimizeResult` attribute ``x`` to ``params`` and ``fun`` to ``cost``.
+
+Additions
+~~~~~~~~~
+- type alias `Bounds`
+- dataclass `Iteration` to pass more information back and forth
+
+Bug fixes
+~~~~~~~~~
+- Tweak the precise timing of callbacks and loop termination, ensure that ``params`` and ``cost`` are always in-sync.
+- Remove `~typing.NoReturn` from `optimize()` signature since it ignores the impact of callbacks.
+
+v1.x
+----
 
 v1.0.0
-------
+^^^^^^
 
 - Initial release

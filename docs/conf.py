@@ -31,9 +31,9 @@ from sphinx import addnodes
 from sphinx.ext import intersphinx
 
 if sys.version_info < (3, 10):
-    import importlib_metadata as metadata
+    import importlib_metadata
 else:
-    from importlib import metadata
+    import importlib.metadata as importlib_metadata
 
 if t.TYPE_CHECKING:
     # pylint: disable = unused-import
@@ -48,13 +48,12 @@ ROOTDIR = pathlib.Path(__file__).absolute().parent.parent
 
 
 project = "cernml-extremum-seeking"
-dist = metadata.distribution(project)
+dist = importlib_metadata.distribution(project)
 
 copyright = "2020–2026 CERN, 2023-2026 GSI Helmholtzzentrum für Schwerionenforschung"
 author = "Penny Madysa"
 release = dist.version
 version = release.partition("+")[0]
-html_last_updated_fmt = "%b %d %Y"
 
 for entry in dist.metadata.get_all("Project-URL", []):
     kind, url = entry.split(", ")
@@ -105,13 +104,15 @@ maximum_signature_line_length = 120
 # The theme to use for HTML and HTML Help pages.  See the documentation
 # for a list of builtin themes.
 html_theme = "python_docs_theme"
+html_last_updated_fmt = "%b %d %Y"
 html_theme_options = {
     "root_url": "https://acc-py.web.cern.ch/",
     "root_name": "Acc-Py Documentation server",
+    "hosted_on": "the <a href='https://acc-py.web.cern.ch/'>Acc-Py Documentation Server</a>",
     "license_url": license_url,
     "issues_url": issues_url,
 }
-templates_path = ["./_theme/"]
+templates_path = ["./_templates/"]
 
 # -- Options for Autodoc -----------------------------------------------
 
@@ -134,7 +135,7 @@ napoleon_use_ivar = True
 
 def acc_py_docs_link(repo: str) -> str:
     """A URL pointing to the Acc-Py docs server."""
-    return f"https://acc-py.web.cern.ch/gitlab/{repo}/docs/stable/"
+    return f"https://acc-py.web.cern.ch/gitlab/{repo}/docs/stable"
 
 
 intersphinx_mapping = {
